@@ -1,0 +1,122 @@
+:root,
+[data-theme="dark"],
+.dark {
+  /* Brand Core */
+  --ws-brand-primary: #0157FC;
+  --ws-brand-primary-hover: #1A6CFF;
+  --ws-brand-primary-active: #0045CC;
+  --ws-brand-secondary: #6B1DFD;
+  --ws-brand-accent: #00F0FF;
+  --ws-brand-gradient-start: #0157FC;
+  --ws-brand-gradient-end: #6B1DFD;
+
+  /* Neutral Backgrounds & Surfaces */
+  --ws-bg-canvas: #020714;
+  --ws-bg-elevated: #061126;
+  --ws-surface-default: #071536;
+  --ws-surface-elevated: #0B2050;
+  --ws-surface-hover: #0F2A66;
+  --ws-surface-active: #14357D;
+  --ws-surface-sunken: #030A1C;
+
+  /* Borders */
+  --ws-border-default: #132B5C;
+  --ws-border-subtle: #0C1D42;
+  --ws-border-strong: #1E438A;
+  --ws-border-focus: #00F0FF;
+
+  /* Typography */
+  --ws-text-primary: #F0F4FC;
+  --ws-text-secondary: #96A9CC;
+  --ws-text-tertiary: #5A7199;
+  --ws-text-disabled: #334360;
+  --ws-text-inverse: #020714;
+
+  /* Icons */
+  --ws-icon-primary: #E2EAF8;
+  --ws-icon-secondary: #8197BF;
+
+  /* Semantics */
+  --ws-status-success: #10B981;
+  --ws-status-success-bg: #032B20;
+  --ws-status-success-border: #055C40;
+
+  --ws-status-warning: #F59E0B;
+  --ws-status-warning-bg: #332005;
+  --ws-status-warning-border: #66430A;
+
+  --ws-status-error: #EF4444;
+  --ws-status-error-bg: #330C0C;
+  --ws-status-error-border: #661919;
+
+  --ws-status-info: #06B6D4;
+  --ws-status-info-bg: #03242B;
+  --ws-status-info-border: #0A5160;
+
+  /* Shadows */
+  --ws-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --ws-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --ws-shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.6);
+  --ws-shadow-glow: 0 0 16px rgba(1, 87, 252, 0.35);
+}
+
+[data-theme="light"],
+.light {
+  /* Brand Core */
+  --ws-brand-primary: #0157FC;
+  --ws-brand-primary-hover: #0047D4;
+  --ws-brand-primary-active: #0037A8;
+  --ws-brand-secondary: #5812DE;
+  --ws-brand-accent: #0090B3;
+  --ws-brand-gradient-start: #0157FC;
+  --ws-brand-gradient-end: #5812DE;
+
+  /* Neutral Backgrounds & Surfaces */
+  --ws-bg-canvas: #F4F7FC;
+  --ws-bg-elevated: #FFFFFF;
+  --ws-surface-default: #FFFFFF;
+  --ws-surface-elevated: #FFFFFF;
+  --ws-surface-hover: #EAF0FA;
+  --ws-surface-active: #DCE6F5;
+  --ws-surface-sunken: #E8EEF8;
+
+  /* Borders */
+  --ws-border-default: #D3DEEE;
+  --ws-border-subtle: #E5ECF6;
+  --ws-border-strong: #AEC2DE;
+  --ws-border-focus: #0157FC;
+
+  /* Typography */
+  --ws-text-primary: #06122E;
+  --ws-text-secondary: #4B5F80;
+  --ws-text-tertiary: #7D90AC;
+  --ws-text-disabled: #A6B8CF;
+  --ws-text-inverse: #FFFFFF;
+
+  /* Icons */
+  --ws-icon-primary: #0E204A;
+  --ws-icon-secondary: #586F94;
+
+  /* Semantics */
+  --ws-status-success: #059669;
+  --ws-status-success-bg: #ECFDF5;
+  --ws-status-success-border: #A7F3D0;
+
+  --ws-status-warning: #D97706;
+  --ws-status-warning-bg: #FFFBEB;
+  --ws-status-warning-border: #FDE68A;
+
+  --ws-status-error: #DC2626;
+  --ws-status-error-bg: #FEF2F2;
+  --ws-status-error-border: #FECACA;
+
+  --ws-status-info: #0891B2;
+  --ws-status-info-bg: #ECFEFF;
+  --ws-status-info-border: #A5F3FC;
+
+  /* Shadows */
+  --ws-shadow-sm: 0 1px 3px rgba(6, 18, 46, 0.06);
+  --ws-shadow-md: 0 4px 12px rgba(6, 18, 46, 0.08);
+  --ws-shadow-lg: 0 12px 24px rgba(6, 18, 46, 0.12);
+  --ws-shadow-glow: 0 0 12px rgba(1, 87, 252, 0.2);
+}
