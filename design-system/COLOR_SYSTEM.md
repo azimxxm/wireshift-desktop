@@ -289,6 +289,14 @@ flowchart TD
   - Success: Left accent strip in `color.status.success`.
   - Error: Left accent strip in `color.status.error`.
 
+### 16. About & Device Info Page (`hero-about.png`)
+- **Hero Image Placement:** Centered top banner using `assets/hero-about.png` with rounded squircle corners (`rounded-2xl`), subtle glow shadow `0 20px 50px rgba(1, 87, 252, 0.25)`.
+- **Application Name:** `WireShift` in `color.text.primary` (font-bold text-2xl).
+- **Bundle ID Pill:** `uz.azimjondev.wireshift` rendered inside `color.surface.sunken` with `color.text.secondary` and 1px border `color.border.default`.
+- **Version & Build Tag:** Pill in `color.brand.primary` with `color.text.inverse` (`v1.0.0 Production`).
+- **Engine Diagnostics Card:** Showing connected `usbmuxd` socket status, active drivers, and platform bridges using `color.surface.default`.
+- **Credits & License:** Clean footnote in `color.text.tertiary`.
+
 ---
 
 ## 6. Accessibility & WCAG 2.2 AA Contrast Validation

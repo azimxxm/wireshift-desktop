@@ -1,7 +1,11 @@
 # WireShift Desktop (`wireshift-desktop`)
 
 <p align="center">
-  <img src="./assets/WireShift%20Device%20Transfer%20Logo.png" alt="WireShift Logo" width="480" />
+  <img src="./assets/hero-about.png" alt="WireShift 3D Hero Icon" width="360" style="border-radius: 36px; box-shadow: 0 20px 50px rgba(1, 87, 252, 0.3);" />
+</p>
+
+<p align="center">
+  <img src="./assets/WireShift%20Device%20Transfer%20Logo.png" alt="WireShift Logo" width="380" />
 </p>
 
 <p align="center">
