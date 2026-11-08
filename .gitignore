@@ -1,0 +1,13 @@
+# Rust build artifacts
+target/
+**/target/
+Cargo.lock
+
+# Node / Frontend build artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.DS_Store
+Thumbs.db
+*.log

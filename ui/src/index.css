@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --ws-brand-primary: #0157FC;
+    --ws-brand-primary-hover: #1A6CFF;
+    --ws-brand-secondary: #6B1DFD;
+    --ws-brand-accent: #00F0FF;
+    --ws-bg-canvas: #020714;
+    --ws-bg-elevated: #061126;
+    --ws-surface-default: #071536;
+    --ws-surface-elevated: #0B2050;
+    --ws-surface-hover: #0F2A66;
+    --ws-surface-sunken: #030A1C;
+    --ws-border-default: #132B5C;
+    --ws-border-subtle: #0C1D42;
+    --ws-border-strong: #1E438A;
+    --ws-text-primary: #F0F4FC;
+    --ws-text-secondary: #96A9CC;
+    --ws-text-tertiary: #5A7199;
+    --ws-status-success: #10B981;
+    --ws-status-warning: #F59E0B;
+    --ws-status-error: #EF4444;
+  }
+}
+
+/* Custom scrollbars for high data density */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #030A1C;
+}
+::-webkit-scrollbar-thumb {
+  background: #132B5C;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #1E438A;
+}
