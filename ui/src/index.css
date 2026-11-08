@@ -2,40 +2,86 @@
 
 @layer base {
   :root {
-    --ws-brand-primary: #0157FC;
-    --ws-brand-primary-hover: #1A6CFF;
-    --ws-brand-secondary: #6B1DFD;
-    --ws-brand-accent: #00F0FF;
-    --ws-bg-canvas: #020714;
-    --ws-bg-elevated: #061126;
-    --ws-surface-default: #071536;
-    --ws-surface-elevated: #0B2050;
-    --ws-surface-hover: #0F2A66;
-    --ws-surface-sunken: #030A1C;
-    --ws-border-default: #132B5C;
-    --ws-border-subtle: #0C1D42;
-    --ws-border-strong: #1E438A;
-    --ws-text-primary: #F0F4FC;
-    --ws-text-secondary: #96A9CC;
-    --ws-text-tertiary: #5A7199;
-    --ws-status-success: #10B981;
-    --ws-status-warning: #F59E0B;
-    --ws-status-error: #EF4444;
+    --apple-canvas: #0E0F12;
+    --apple-surface: #141519;
+    --apple-surface-elevated: #1A1B22;
+    --apple-glass-bg: rgba(255, 255, 255, 0.04);
+    --apple-glass-border: rgba(255, 255, 255, 0.08);
+    --apple-blue: #0A84FF;
+    --apple-blue-hover: #0071E3;
+    --apple-green: #30D158;
+    --apple-text-primary: #FFFFFF;
+    --apple-text-secondary: rgba(255, 255, 255, 0.65);
+    --apple-text-tertiary: rgba(255, 255, 255, 0.40);
+  }
+
+  body {
+    background-color: #0E0F12;
+    color: #FFFFFF;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
   }
 }
 
-/* Custom scrollbars for high data density */
+/* Apple Liquid Glass Utility Classes */
+.apple-glass {
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.apple-glass-subtle {
+  background: rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.apple-glass-interactive {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-glass-interactive:hover {
+  background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+/* Custom subtle scrollbars for high data density */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #030A1C;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #132B5C;
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #1E438A;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+/* Tauri window drag region styles */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] input,
+[data-tauri-drag-region] select,
+[data-tauri-drag-region] textarea,
+[data-tauri-drag-region] a,
+[data-tauri-drag-region] [data-no-drag] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }

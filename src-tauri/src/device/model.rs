@@ -27,6 +27,31 @@ pub struct ConnectionSpeed {
     pub bus_type: String,
     pub max_bandwidth_mbps: u32,
     pub is_cable_throttled: bool,
+    pub negotiated_speed_mbps: u32,
+    pub port_location: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CableDiagnostic {
+    pub negotiated_speed_mbps: u32,
+    pub negotiated_speed_text: String,
+    pub max_device_speed_mbps: u32,
+    pub max_port_speed_mbps: u32,
+    pub is_cable_throttled: bool,
+    pub port_side: String,
+    pub port_name: String,
+    pub mac_model: String,
+    pub verdict_summary: String,
+    pub verdict_details: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CableBenchmarkResult {
+    pub speed_mb_s: f64,
+    pub transferred_mb: f64,
+    pub elapsed_seconds: f64,
+    pub cable_grade: String,
+    pub verdict: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

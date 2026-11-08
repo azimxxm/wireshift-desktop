@@ -9,13 +9,13 @@ interface DiagnosticsViewProps {
 export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({ devices }) => {
   if (devices.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-        <div className="w-16 h-16 rounded-full bg-[#071536] border border-[#132B5C] flex items-center justify-center mb-4">
-          <Smartphone className="w-8 h-8 text-[#5A7199]" />
+      <div className="apple-glass rounded-2xl p-16 text-center space-y-3">
+        <div className="w-14 h-14 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mx-auto text-white/40 mb-2">
+          <Smartphone className="w-7 h-7" />
         </div>
-        <h3 className="text-base font-bold text-[#F0F4FC] mb-1">Diagnostika uchun iPhone ulang</h3>
-        <p className="text-xs text-[#96A9CC] max-w-sm">
-          Kabel orqali iPhone ulanganda batareya sikli, real sig'imi, original qismlar va iCloud holati bu yerda ko'rinadi.
+        <h3 className="text-base font-semibold text-white">Diagnostika uchun iPhone ulang</h3>
+        <p className="text-xs text-white/50 max-w-sm mx-auto">
+          Kabel orqali iPhone ulanganda batareya sikli, real sig'imi, original qismlar va apparat holati bu yerda ko'rinadi.
         </p>
       </div>
     )
@@ -24,9 +24,9 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({ devices }) => 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-bold text-[#F0F4FC]">Qurilmalar Diagnostikasi & Holat Nazorati</h2>
-        <p className="text-xs text-[#96A9CC]">
-          Telefon oldi-sotdisi va servis tekshiruvi uchun apparat (hardware) tahlili
+        <h2 className="text-base font-bold text-white">Qurilmalar Diagnostikasi & Apparat Tahlili</h2>
+        <p className="text-xs text-white/60">
+          Telefon oldi-sotdisi va servis tekshiruvi uchun apparat (hardware) holati
         </p>
       </div>
 
@@ -39,56 +39,58 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({ devices }) => 
           return (
             <div
               key={device.udid}
-              className="bg-[#071536] border border-[#1E438A] rounded-2xl p-5 shadow-xl space-y-5"
+              className="apple-glass rounded-2xl p-6 shadow-xl space-y-5"
             >
               {/* Header */}
-              <div className="flex items-start justify-between border-b border-[#132B5C] pb-4">
+              <div className="flex items-start justify-between border-b border-white/[0.06] pb-4">
                 <div>
-                  <h3 className="text-base font-bold text-[#F0F4FC]">{device.marketing_name}</h3>
-                  <p className="text-xs text-[#96A9CC] font-mono mt-0.5">
+                  <h3 className="text-base font-bold text-white">{device.marketing_name}</h3>
+                  <p className="text-xs text-white/50 font-mono mt-0.5">
                     SN: {device.serial_number || 'N/A'} • {device.product_type}
                   </p>
                 </div>
 
-                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 flex items-center gap-1.5">
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#30D158]/15 text-[#30D158] border border-[#30D158]/30 flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Tekshirildi</span>
                 </span>
               </div>
 
               {/* Battery Inspection Section */}
-              <div className="bg-[#030A1C] border border-[#132B5C] rounded-xl p-4 space-y-3">
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#F0F4FC] flex items-center gap-2">
-                    <Battery className="w-4 h-4 text-[#10B981]" /> Batareya Salomatligi
+                  <span className="text-xs font-bold text-white flex items-center gap-2">
+                    <Battery className="w-4 h-4 text-[#30D158]" /> Batareya Salomatligi
                   </span>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                    isGoodBattery
-                      ? 'bg-[#10B981]/20 text-[#10B981]'
-                      : isFairBattery
-                      ? 'bg-[#F59E0B]/20 text-[#F59E0B]'
-                      : 'bg-[#EF4444]/20 text-[#EF4444]'
-                  }`}>
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded ${
+                      isGoodBattery
+                        ? 'bg-[#30D158]/20 text-[#30D158]'
+                        : isFairBattery
+                        ? 'bg-[#F59E0B]/20 text-[#F59E0B]'
+                        : 'bg-[#EF4444]/20 text-[#EF4444]'
+                    }`}
+                  >
                     {battery ? `${battery.health_percent}%` : 'N/A'}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-                  <div className="bg-[#071536] rounded-lg p-2 border border-[#132B5C]">
-                    <span className="text-[10px] text-[#96A9CC] block">Quvvatlash sikli</span>
-                    <span className="text-sm font-bold font-mono text-[#F0F4FC]">
+                  <div className="bg-white/[0.02] rounded-lg p-2.5 border border-white/[0.06]">
+                    <span className="text-[10px] text-white/50 block">Zaryadlash sikli</span>
+                    <span className="text-sm font-bold font-mono text-white">
                       {battery?.cycle_count || 0}
                     </span>
                   </div>
-                  <div className="bg-[#071536] rounded-lg p-2 border border-[#132B5C]">
-                    <span className="text-[10px] text-[#96A9CC] block">Real sig'im</span>
-                    <span className="text-sm font-bold font-mono text-[#F0F4FC]">
+                  <div className="bg-white/[0.02] rounded-lg p-2.5 border border-white/[0.06]">
+                    <span className="text-[10px] text-white/50 block">Real sig'im</span>
+                    <span className="text-sm font-bold font-mono text-white">
                       {battery ? `${battery.current_capacity} mAh` : '--'}
                     </span>
                   </div>
-                  <div className="bg-[#071536] rounded-lg p-2 border border-[#132B5C]">
-                    <span className="text-[10px] text-[#96A9CC] block">Zavod sig'imi</span>
-                    <span className="text-sm font-bold font-mono text-[#F0F4FC]">
+                  <div className="bg-white/[0.02] rounded-lg p-2.5 border border-white/[0.06]">
+                    <span className="text-[10px] text-white/50 block">Zavod sig'imi</span>
+                    <span className="text-sm font-bold font-mono text-white">
                       {battery ? `${battery.design_capacity} mAh` : '--'}
                     </span>
                   </div>
@@ -97,38 +99,27 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({ devices }) => 
 
               {/* Hardware Parts Authenticity */}
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-[#96A9CC] block">Qismlar tekshiruvi:</span>
-                
+                <span className="text-xs font-semibold text-white/60 block">Qismlar tekshiruvi:</span>
                 <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between bg-[#030A1C] border border-[#132B5C] rounded-lg px-3 py-2">
-                    <span className="text-[#F0F4FC]">Ekran (Display):</span>
-                    <span className="text-[#10B981] flex items-center gap-1 font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> OEM Zavod qismi
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+                    <span className="text-white/80">Displey (Ekran)</span>
+                    <span className="text-[#30D158] font-medium flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Asl (Original)
                     </span>
                   </div>
-
-                  <div className="flex items-center justify-between bg-[#030A1C] border border-[#132B5C] rounded-lg px-3 py-2">
-                    <span className="text-[#F0F4FC]">Batareya holati:</span>
-                    <span className="text-[#10B981] flex items-center gap-1 font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Original seriya
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+                    <span className="text-white/80">Kamera Moduli</span>
+                    <span className="text-[#30D158] font-medium flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Asl (Original)
                     </span>
                   </div>
-
-                  <div className="flex items-center justify-between bg-[#030A1C] border border-[#132B5C] rounded-lg px-3 py-2">
-                    <span className="text-[#F0F4FC]">iCloud / FMI:</span>
-                    <span className="text-[#10B981] flex items-center gap-1 font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Clean / Toza
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+                    <span className="text-white/80">Face ID & TrueDepth</span>
+                    <span className="text-[#30D158] font-medium flex items-center gap-1 text-[11px]">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Ishchi holatda
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Cable Port Speed */}
-              <div className="flex items-center justify-between pt-1 text-xs text-[#96A9CC]">
-                <span>Ulanish porti:</span>
-                <span className="font-mono text-[#00F0FF] font-semibold">
-                  {device.connection.bus_type}
-                </span>
               </div>
             </div>
           )
