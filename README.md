@@ -10,33 +10,42 @@
 
 <p align="center">
   <strong>Ultra-Fast Cable-Based iPhone Migration & Hardware Diagnostics</strong><br/>
-  Designed for iPhone Resellers, Trade-in Shops, and Mobile Technicians.
+  iPhone sotuvchilari, servis ustalari va oddiy foydalanuvchilar uchun.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/App_Name-WireShift-blue" alt="App Name" />
   <img src="https://img.shields.io/badge/Bundle-uz.azimjondev.wireshift-indigo" alt="Bundle" />
-  <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey" alt="Platform" />
+  <img src="https://img.shields.io/badge/Platform-macOS%20(Apple%20Silicon)-lightgrey" alt="Platform" />
   <img src="https://img.shields.io/badge/Stack-Tauri%202%20%7C%20Rust%20%7C%20React%2019-teal" alt="Stack" />
 </p>
 
 ---
 
-## ⚡ Overview
+## 📥 O'rnatish (Apple Silicon Mac)
 
-**WireShift** solves the trade-in data transfer bottleneck. Instead of waiting 1–3 hours for wireless Apple Quick Start or dealing with bloated third-party utilities, WireShift enables direct, hardware-accelerated cable migration between two iPhones via computer at up to **10 Gbps (USB 3.2)**, alongside instant hardware authenticity inspection.
+Terminal'ni oching va bitta buyruqni yozing — eng oson yo'l, hech qanday ogohlantirish chiqmaydi:
 
-### Key Capabilities
+```bash
+curl -fsSL https://github.com/azimxxm/wireshift-desktop/releases/latest/download/install.sh | bash
+```
 
-1. 🚀 **Direct Phone-to-Phone Migration (Full Clone):**
-   - Connect Source iPhone (Port A) and Target iPhone (Port B).
-   - 1-Click full backup & restore streaming pipeline via `MobileBackup2`.
-2. 🖼️ **Selective Media & Contacts Transfer:**
-   - Direct extraction of `DCIM` photos, 4K videos, and address books via Apple File Conduit (`AFC`), skipping 40GB+ of junk application cache.
-3. 🔍 **Instant Hardware Diagnostics (Forensic Inspection):**
-   - Battery cycle count and measured real health capacity vs design capacity.
-   - Genuine parts verification (Screen, Battery, Camera serial matching).
-   - Instant iCloud Activation Lock & Find My iPhone status verification.
+Yoki [Releases](https://github.com/azimxxm/wireshift-desktop/releases/latest) sahifasidan `.pkg` faylini yuklab o'rnating
+(birinchi ochishda: System Settings → Privacy & Security → **Open Anyway**).
+
+Homebrew yoki boshqa dastur kerak emas — iPhone bilan ishlash uchun kerakli hamma narsa ilova ichida.
+
+---
+
+## ⚡ Imkoniyatlar
+
+1. 🖼️ **Rasm va videolarni Mac'ga ko'chirish** — hammasi, faqat videolar yoki faqat rasmlar; albom papkalari saqlanadi,
+   Mac'da bor fayllar qayta ko'chirilmaydi, rasm tahrirlari (AAE) birga saqlanadi.
+2. 🎞️ **Galereya** — telefondagi rasm va videolarni ko'rish (video telefondan to'g'ridan-to'g'ri o'ynaydi), bittalab tanlab saqlash.
+3. 🔌 **Kabel tezligi** — haqiqiy ulanish tezligi, 64 MB o'qib o'lchash va qaysi kabel qancha tezlik berishi.
+4. 🔍 **Diagnostika** — batareya salomatligi, sikllar, mAh, xotira, model/hudud (masalan J/A), IMEI, SIM va boshqalar.
+
+Ilova telefondagi fayllarni faqat o'qiydi — hech narsa o'chirilmaydi yoki o'zgartirilmaydi.
 
 ---
 

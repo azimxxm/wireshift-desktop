@@ -1,41 +1,29 @@
-## WireShift v3.0.0 — Native macOS redesign
+## WireShift v3.0.1 — hammasi haqiqiy ishlaydi
 
-iPhone'dan Mac'ga kabel orqali ko'chirish va qurilma diagnostikasi — endi macOS ilovasidek his qilinadi.
+### O'rnatish (eng oson)
+Terminal'ni oching va yozing:
+```bash
+curl -fsSL https://github.com/azimxxm/wireshift-desktop/releases/latest/download/install.sh | bash
+```
+Ilova yuklab olinadi, Applications papkasiga o'rnatiladi va ochiladi — ogohlantirish chiqmaydi.
 
-### Yangi dizayn
+**Yoki** `WireShift_3.0.1_aarch64.pkg` ni yuklab o'rnating. macOS «Apple tekshira olmadi» desa:
+System Settings → Privacy & Security → pastda **Open Anyway** → qayta oching.
 
-- Haqiqiy macOS sidebar materiali (vibrancy), 52px toolbar, 13px system shrift, ixcham grouped ro'yxatlar.
-- Sidebar'da ulangan qurilmalar ro'yxati; eksport jarayoni har qanday sahifadan ko'rinadi.
-- Klaviatura: ⌘1–⌘4 sahifalar, ⌘, sozlamalar, ⌘R yangilash, galereyada ⌘A / Esc / Space / ⌘F.
-- "Tarix" bo'limi olib tashlandi; "Sozlamalar" to'liq ishlaydi (saqlash papkasi, Finder'da ochish, AAE, katakcha o'lchami, kesh).
+Talab: Apple Silicon Mac (M1/M2/M3/M4), macOS 11+. Homebrew kerak emas.
 
-### Galereya
+### Yangi
+- **Eksport:** hammasi / faqat videolar / faqat rasmlar; albom papkalari saqlanadi; **faqat yangi fayllar** —
+  Mac'da bor fayllar qayta ko'chirilmaydi; rasm tahrirlari (AAE) birga saqlanadi.
+- **Kabel tezligi:** haqiqiy ulanish tezligi va Mac modeli; 64 MB o'qib aniq o'lchash (hech narsa yozilmaydi);
+  qaysi kabel (oddiy, 5 Gbps, 10 Gbps, Thunderbolt) qancha tezlik berishi rasmlar bilan va galereyangizni necha daqiqada ko'chirishi.
 
-- Pastdagi blur panel olib tashlandi — tanlov soni, hajmi va "Mac'ga saqlash" yuqoridagi qatorda.
-- Bosish = tanlash, Shift = oraliq tanlash, 2x bosish yoki Space = ko'rish.
-- Ko'rish oynasida video telefondan to'g'ridan-to'g'ri oqim bilan ijro etiladi (yuklab olmasdan, oldinga/orqaga surish bilan); HEIC/JPG to'liq o'lchamda; ←/→ bilan varaqlash.
-- AAE (rasm tahriri) fayllari "Barchasi"dan chiqarildi va tanlangan rasm bilan birga avtomatik saqlanadi.
-- Kichik fayllar endi "0.0 MB" emas, KB da ko'rsatiladi.
-- Tuzatildi: MP4 videolar saralashda doim tepaga chiqib qolardi (`IMG_7240.MP4` → 72404 deb o'qilardi).
-
-### Diagnostika — endi haqiqiy ma'lumot
-
-- Batareya salomatligi, sikllar soni, hozirgi/zavod sig'imi (mAh), kuchlanish — telefonning diagnostika xizmatidan.
-  Avval zaryad darajasi (91%) noto'g'ri "salomatlik" deb, sikl esa 0 deb ko'rsatilardi.
-- Xotira hajmi iOS 17+ da ham to'g'ri chiqadi (avval "N/A").
-- Model raqami va hudud (masalan, J/A — kamera ovozi o'chmaydigan Yaponiya modeli), IMEI, SIM, Wi‑Fi/Bluetooth manzillari, modem dasturi.
-- Soxta "Asl (Original)" qismlar tekshiruvi olib tashlandi.
+### Olib tashlandi (kabel orqali iloji yo'q)
+- Kontaktlar, «Boshqa fayllar» va «Boshqa iPhone'ga» rejimi — ular ishlamas edi.
 
 ### Tuzatishlar
+- Homebrew o'rnatilmagan Mac'larda iPhone ko'rinmas edi (kutubxona Homebrew'ga bog'lanib qolgan edi).
+- iPhone 16 / 16 Plus noto'g'ri USB 3 deb ko'rsatilardi (ular USB 2.0).
+- Galereyada iOS tizim fayllari va AAE kataklari ko'rinmaydi.
 
-- Sarlavha qatorida 2x bosish oyna kattalashtirishni ikki marta chaqirardi; endi macOS sozlamasiga ("Double-click a window's title bar to") qarab bir marta ishlaydi.
-- Eksport progressi saqlash papkasidagi eski fayllarni ham sanardi.
-
----
-
-### O'rnatish
-
-- **1-usul (tavsiya):** `WireShift_3.0.0_aarch64.pkg` ni yuklab, o'rnating.
-- **2-usul:** `WireShift_3.0.0_aarch64.dmg` ni ochib, `WireShift.app` ni Applications papkasiga tashlang.
-
-Ilova telefondagi fayllarni faqat o'qiydi — hech narsa o'chirilmaydi yoki o'zgartirilmaydi.
+v3.0.0 dagi yangi dizayn, video ko'rish va haqiqiy batareya diagnostikasi ham shu versiyada.
