@@ -63,7 +63,8 @@
       "exceptionDomain": "",
       "signingIdentity": "-",
       "providerShortName": null,
-      "entitlements": null
+      "entitlements": null,
+      "hardenedRuntime": false
     }
   }
 }
