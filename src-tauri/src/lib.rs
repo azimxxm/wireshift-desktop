@@ -1,4 +1,5 @@
 pub mod device;
+mod media_protocol;
 
 use device::{Bridge, ConnectedDevice, DeviceDetector, FileExporter};
 
@@ -105,8 +106,63 @@ async fn check_system_status() -> Result<serde_json::Value, String> {
         "usbmuxd": usbmuxd_running,
         "libimobiledevice": has_ideviceinfo,
         "bundle": "uz.azimjondev.wireshift",
-        "version": "1.0.2"
+        "version": env!("CARGO_PKG_VERSION")
     }))
+}
+
+/// Double-click on our custom titlebar: follow System Settings >
+/// Desktop & Dock > "Double-click a window's title bar to" (Zoom / Minimize / nothing).
+#[tauri::command]
+async fn titlebar_double_click(window: tauri::WebviewWindow) -> Result<(), String> {
+    let action = tokio::process::Command::new("defaults")
+        .args(["read", "-g", "AppleActionOnDoubleClick"])
+        .output()
+        .await
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    match action.as_str() {
+        "Minimize" => window.minimize().map_err(|e| e.to_string()),
+        "None" | "Do Nothing" => Ok(()),
+        // "Maximize" (Zoom), "Fill" or unset -> zoom, same as a native titlebar
+        _ => {
+            if window.is_maximized().unwrap_or(false) {
+                window.unmaximize().map_err(|e| e.to_string())
+            } else {
+                window.maximize().map_err(|e| e.to_string())
+            }
+        }
+    }
+}
+
+fn dir_size(path: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(path) else { return 0 };
+    entries
+        .flatten()
+        .map(|e| match e.file_type() {
+            Ok(t) if t.is_dir() => dir_size(&e.path()),
+            Ok(_) => e.metadata().map(|m| m.len()).unwrap_or(0),
+            Err(_) => 0,
+        })
+        .sum()
+}
+
+/// Size of the local thumbnail cache on this Mac (never touches the phone)
+#[tauri::command]
+async fn get_cache_size() -> Result<u64, String> {
+    let root = FileExporter::cache_root().join("thumbnails");
+    Ok(tokio::task::spawn_blocking(move || dir_size(&root)).await.unwrap_or(0))
+}
+
+/// Delete only the local thumbnail cache on this Mac (regenerable, phone untouched)
+#[tauri::command]
+async fn clear_thumbnail_cache() -> Result<(), String> {
+    let root = FileExporter::cache_root().join("thumbnails");
+    if root.exists() {
+        tokio::fs::remove_dir_all(&root).await.map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -116,6 +172,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .register_asynchronous_uri_scheme_protocol("wsmedia", |_ctx, request, responder| {
+            // AFC reads block, keep them off the main thread
+            std::thread::spawn(move || responder.respond(media_protocol::handle(request)));
+        })
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed = event {
                 FileExporter::cancel_export();
@@ -136,7 +196,10 @@ pub fn run() {
             run_cable_benchmark,
             get_media_thumbnail,
             fetch_media_thumbnails_batch,
-            cancel_export
+            cancel_export,
+            titlebar_double_click,
+            get_cache_size,
+            clear_thumbnail_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running WireShift desktop application");

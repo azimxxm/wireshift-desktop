@@ -1,87 +1,378 @@
 @import "tailwindcss";
 
+/* WireShift — macOS-native look: vibrancy sidebar, flat grouped surfaces,
+   system font at desktop size, one accent color, hairline separators. */
+
 @layer base {
   :root {
-    --apple-canvas: #0E0F12;
-    --apple-surface: #141519;
-    --apple-surface-elevated: #1A1B22;
-    --apple-glass-bg: rgba(255, 255, 255, 0.04);
-    --apple-glass-border: rgba(255, 255, 255, 0.08);
-    --apple-blue: #0A84FF;
-    --apple-blue-hover: #0071E3;
-    --apple-green: #30D158;
-    --apple-text-primary: #FFFFFF;
-    --apple-text-secondary: rgba(255, 255, 255, 0.65);
-    --apple-text-tertiary: rgba(255, 255, 255, 0.40);
+    --ws-canvas: #1e1e1e;          /* main content background (opaque) */
+    --ws-surface: #262626;         /* grouped section background */
+    --ws-surface-hover: #2e2e2e;
+    --ws-elevated: #2c2c2c;        /* sheets, popovers */
+    --ws-separator: rgba(255, 255, 255, 0.08);
+    --ws-border: rgba(255, 255, 255, 0.1);
+    --ws-control: rgba(255, 255, 255, 0.08);
+    --ws-control-hover: rgba(255, 255, 255, 0.12);
+    --ws-label: rgba(255, 255, 255, 0.88);
+    --ws-label-2: rgba(255, 255, 255, 0.55);
+    --ws-label-3: rgba(255, 255, 255, 0.32);
+    --ws-accent: #0a84ff;
+    --ws-accent-hover: #2b95ff;
+    --ws-accent-soft: rgba(10, 132, 255, 0.16);
+    --ws-green: #30d158;
+    --ws-orange: #ff9f0a;
+    --ws-red: #ff453a;
+    --ws-toolbar-h: 52px;
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    /* transparent so the native sidebar material shows through */
+    background: transparent;
   }
 
   body {
-    background-color: #0E0F12;
-    color: #FFFFFF;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif;
+    margin: 0;
+    color: var(--ws-label);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    line-height: 1.38;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
     user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  button {
+    cursor: default;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  .selectable {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  :focus-visible {
+    outline: 3px solid rgba(10, 132, 255, 0.55);
+    outline-offset: 1px;
+    border-radius: 6px;
   }
 }
 
-/* Apple Liquid Glass Utility Classes */
-.apple-glass {
-  background: rgba(255, 255, 255, 0.035);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36), inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+/* ---------- surfaces ---------- */
+
+.ws-main {
+  background: var(--ws-canvas);
 }
 
-.apple-glass-subtle {
-  background: rgba(255, 255, 255, 0.025);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+.ws-toolbar {
+  height: var(--ws-toolbar-h);
+  min-height: var(--ws-toolbar-h);
+  border-bottom: 1px solid var(--ws-separator);
 }
 
+.ws-group {
+  background: var(--ws-surface);
+  border: 1px solid var(--ws-separator);
+  border-radius: 10px;
+}
+
+.ws-group > .ws-row + .ws-row {
+  border-top: 1px solid var(--ws-separator);
+}
+
+.ws-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.ws-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ws-label-2);
+  padding: 0 4px 6px;
+}
+
+/* Old class names used by a few views — kept flat, no fake glass */
+.apple-glass,
+.apple-glass-subtle,
 .apple-glass-interactive {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--ws-surface);
+  border: 1px solid var(--ws-separator);
 }
 .apple-glass-interactive:hover {
-  background: rgba(255, 255, 255, 0.065);
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
+  background: var(--ws-surface-hover);
 }
 
-/* Custom subtle scrollbars for high data density */
+/* ---------- controls ---------- */
+
+.ws-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ws-label);
+  background: var(--ws-control);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background-color 120ms ease, opacity 120ms ease;
+  white-space: nowrap;
+}
+.ws-btn:hover:not(:disabled) {
+  background: var(--ws-control-hover);
+}
+.ws-btn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+.ws-btn:disabled {
+  opacity: 0.4;
+}
+
+.ws-btn-primary {
+  background: var(--ws-accent);
+  border-color: transparent;
+  color: #fff;
+}
+.ws-btn-primary:hover:not(:disabled) {
+  background: var(--ws-accent-hover);
+}
+.ws-btn-primary:active:not(:disabled) {
+  background: #0070e0;
+}
+
+.ws-btn-danger {
+  color: var(--ws-red);
+}
+
+.ws-btn-large {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 8px;
+}
+
+.ws-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--ws-label-2);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.ws-icon-btn:hover:not(:disabled) {
+  background: var(--ws-control);
+  color: var(--ws-label);
+}
+.ws-icon-btn[aria-pressed="true"] {
+  background: var(--ws-control-hover);
+  color: var(--ws-label);
+}
+
+.ws-link {
+  color: var(--ws-accent);
+  font-weight: 500;
+}
+.ws-link:hover {
+  text-decoration: underline;
+}
+
+/* segmented control (NSSegmentedControl look) */
+.ws-segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ws-segmented > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ws-label-2);
+  transition: background-color 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+.ws-segmented > button:hover {
+  color: var(--ws-label);
+}
+.ws-segmented > button[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.ws-field {
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--ws-label);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.ws-field::placeholder {
+  color: var(--ws-label-3);
+}
+.ws-field:focus {
+  border-color: rgba(10, 132, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.3);
+}
+
+select.ws-field {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 24px 0 9px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='10' viewBox='0 0 8 10'%3E%3Cpath d='M1 3.5 4 1l3 2.5M1 6.5 4 9l3-2.5' fill='none' stroke='white' stroke-opacity='.6' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+/* native-looking switch */
+.ws-switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background-color 160ms ease;
+  flex-shrink: 0;
+}
+.ws-switch::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 160ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.ws-switch[aria-checked="true"] {
+  background: var(--ws-accent);
+}
+.ws-switch[aria-checked="true"]::after {
+  transform: translateX(14px);
+}
+
+.ws-checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.ws-checkbox[data-checked="true"] {
+  background: var(--ws-accent);
+  border-color: var(--ws-accent);
+}
+
+input[type="range"].ws-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  outline: none;
+}
+input[type="range"].ws-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #e8e8e8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.ws-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.ws-progress > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ws-accent);
+  transition: width 300ms ease;
+}
+
+/* overlay scrollbars like macOS */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.35);
+  background-clip: content-box;
 }
 
-/* Tauri window drag region styles */
-[data-tauri-drag-region] {
-  -webkit-app-region: drag;
-  app-region: drag;
+/* subtle appear for sheets */
+@keyframes ws-sheet-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.ws-sheet-in {
+  animation: ws-sheet-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-[data-tauri-drag-region] button,
-[data-tauri-drag-region] input,
-[data-tauri-drag-region] select,
-[data-tauri-drag-region] textarea,
-[data-tauri-drag-region] a,
-[data-tauri-drag-region] [data-no-drag] {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }

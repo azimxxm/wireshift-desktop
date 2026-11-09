@@ -12,3 +12,6 @@ dist/
 Thumbs.db
 *.log
 *.tsbuildinfo
+
+# claude-agents: per-developer plugin profile (do not commit)
+.claude/settings.local.json

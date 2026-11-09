@@ -1,28 +1,72 @@
-import React from 'react'
+import React from "react";
 import {
   ArrowLeftRight,
   Activity,
-  Clock,
   Settings,
   Info,
   RefreshCw,
-  Film,
+  Images,
   Gauge,
   Smartphone,
-  Laptop
-} from 'lucide-react'
-import { handleWindowDrag, handleWindowDoubleClick } from '../utils/windowDrag'
+  X,
+} from "lucide-react";
+import { ConnectedDevice } from "../types";
+import { titlebarProps } from "../utils/windowDrag";
+
+export type TabId = "transfer" | "media" | "cable" | "diagnostics" | "settings";
 
 interface SidebarProps {
-  currentTab: string
-  setCurrentTab: (tab: string) => void
-  onOpenAbout: () => void
-  onRefresh: () => void
-  isRefreshing: boolean
-  deviceCount: number
-  isMigrating?: boolean
-  progress?: number
+  currentTab: TabId;
+  setCurrentTab: (tab: TabId) => void;
+  onOpenAbout: () => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+  devices: ConnectedDevice[];
+  activeUdid?: string;
+  onSelectDevice: (udid: string) => void;
+  isMigrating: boolean;
+  progress: number;
+  progressLabel: string;
+  onCancel: () => void;
 }
+
+const NAV: {
+  id: TabId;
+  label: string;
+  icon: React.ElementType;
+  shortcut: string;
+}[] = [
+  { id: "transfer", label: "Eksport", icon: ArrowLeftRight, shortcut: "⌘1" },
+  { id: "media", label: "Galereya", icon: Images, shortcut: "⌘2" },
+  { id: "cable", label: "Kabel tezligi", icon: Gauge, shortcut: "⌘3" },
+  { id: "diagnostics", label: "Diagnostika", icon: Activity, shortcut: "⌘4" },
+];
+
+const SidebarItem: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  icon: React.ElementType;
+  label: string;
+  title?: string;
+  trailing?: React.ReactNode;
+}> = ({ active, onClick, icon: Icon, label, title, trailing }) => (
+  <button
+    onClick={onClick}
+    title={title}
+    className={`w-full h-7 flex items-center gap-2 px-2 rounded-md text-[13px] transition-colors ${
+      active
+        ? "bg-white/[0.13] text-white"
+        : "text-[var(--ws-label)] hover:bg-white/[0.06]"
+    }`}
+  >
+    <Icon
+      className={`w-4 h-4 shrink-0 ${active ? "text-[var(--ws-accent)]" : "text-[var(--ws-label-2)]"}`}
+      strokeWidth={1.8}
+    />
+    <span className="truncate flex-1 text-left">{label}</span>
+    {trailing}
+  </button>
+);
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentTab,
@@ -30,115 +74,117 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAbout,
   onRefresh,
   isRefreshing,
-  deviceCount,
-  isMigrating = false,
-  progress = 0,
-}) => {
-  const navItems = [
-    { id: 'transfer', label: 'Eksport & Transfer', icon: ArrowLeftRight },
-    { id: 'media', label: 'Rasmlar & Videolar', icon: Film },
-    { id: 'cable', label: 'Kabel & Port Tezligi', icon: Gauge },
-    { id: 'diagnostics', label: 'Uskuna Diagnostikasi', icon: Activity },
-    { id: 'history', label: 'Tarix & Jurnal', icon: Clock },
-    { id: 'settings', label: 'Sozlamalar', icon: Settings },
-  ]
+  devices,
+  activeUdid,
+  onSelectDevice,
+  isMigrating,
+  progress,
+  progressLabel,
+  onCancel,
+}) => (
+  <aside className="w-[220px] shrink-0 flex flex-col border-r border-black/40 bg-black/[0.12]">
+    {/* traffic-light zone, drags the window like a real titlebar */}
+    <div {...titlebarProps} className="h-[52px] shrink-0" />
 
-  return (
-    <aside className="w-64 bg-[#121317]/90 backdrop-blur-2xl border-r border-white/[0.08] flex flex-col justify-between select-none pb-4 z-20">
-      {/* Top Header & Traffic Lights Clearance Region */}
-      <div>
-        <div
-          data-tauri-drag-region
-          onMouseDown={handleWindowDrag}
-          onDoubleClick={handleWindowDoubleClick}
-          className="h-16 border-b border-white/[0.06] flex items-center justify-between pl-[88px] pr-4 cursor-default select-none"
-        >
-          {/* Logo & Brand (Cleanly spaced after the 88px traffic lights zone) */}
-          <div className="flex items-center gap-2.5 pointer-events-none">
-            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#0A84FF] to-[#5E5CE6] p-0.5 shadow-md flex items-center justify-center overflow-hidden border border-white/20">
-              <img src="/app-icon.png" alt="Icon" className="w-full h-full object-cover rounded-[7px]" />
-            </div>
-            <div>
-              <h1 className="text-[13px] font-semibold text-white tracking-tight leading-none">WireShift</h1>
-              <p className="text-[9px] text-[#0A84FF] font-medium tracking-wide mt-0.5">HIGH-SPEED SYNC</p>
-            </div>
-          </div>
+    <nav className="px-2.5 space-y-0.5">
+      {NAV.map((item) => (
+        <SidebarItem
+          key={item.id}
+          active={currentTab === item.id}
+          onClick={() => setCurrentTab(item.id)}
+          icon={item.icon}
+          label={item.label}
+          title={`${item.label} (${item.shortcut})`}
+        />
+      ))}
+    </nav>
 
-          {/* Minimalist Apple Glass Refresh Button */}
-          <button
-            onClick={onRefresh}
-            title="Qurilmalarni qayta skanerlash"
-            disabled={isRefreshing}
-            className={`p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/[0.08] transition-all border border-transparent hover:border-white/[0.08] cursor-pointer ${
-              isRefreshing ? 'animate-spin text-[#0A84FF]' : ''
-            }`}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Live Device Status Pill */}
-        <div className="px-3 pt-3.5 mb-2">
-          <div className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2 text-xs">
-            <span className="text-white/60 flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  deviceCount > 0 ? 'bg-[#30D158] shadow-[0_0_8px_#30D158]' : 'bg-white/30'
-                }`}
-              />
-              <span className="text-[11px] font-medium">Ulangan Qurilmalar</span>
-            </span>
-            <span className="font-mono text-xs font-semibold text-white bg-white/[0.06] px-2 py-0.5 rounded-md">
-              {deviceCount} ta
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation Links */}
-        <nav className="px-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = currentTab === item.id
-            return (
-              <button
-                key={item.id}
-                onClick={() => setCurrentTab(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-[#0A84FF]/12 text-[#0A84FF] font-semibold border border-[#0A84FF]/25 shadow-sm'
-                    : 'text-white/60 hover:text-white hover:bg-white/[0.05] font-medium'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#0A84FF]' : 'text-white/40'}`} />
-                  <span>{item.label}</span>
-                </div>
-
-                {/* Migration active indicator */}
-                {isMigrating && (item.id === 'transfer' || item.id === 'media') && (
-                  <span className="text-[10px] font-mono font-bold text-[#0A84FF] bg-[#0A84FF]/20 px-1.5 py-0.5 rounded-full border border-[#0A84FF]/30">
-                    {progress}%
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </nav>
-      </div>
-
-      {/* Bottom Info & About WireShift */}
-      <div className="px-3 pt-3 border-t border-white/[0.06]">
+    <div className="mt-5 px-2.5">
+      <div className="flex items-center justify-between px-2 mb-1">
+        <span className="text-[11px] font-semibold text-[var(--ws-label-3)]">
+          Qurilmalar
+        </span>
         <button
-          onClick={onOpenAbout}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-white/50 hover:text-white hover:bg-white/[0.05] transition-all cursor-pointer font-medium"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          title="Qayta skanerlash (⌘R)"
+          className="ws-icon-btn !w-5 !h-5"
         >
-          <div className="flex items-center gap-2">
-            <Info className="w-3.5 h-3.5" />
-            <span>WireShift haqida</span>
-          </div>
-          <span className="text-[10px] font-mono text-white/40">v1.0</span>
+          <RefreshCw
+            className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
+          />
         </button>
       </div>
-    </aside>
-  )
-}
+
+      {devices.length === 0 ? (
+        <p className="px-2 py-1 text-[12px] text-[var(--ws-label-3)]">
+          iPhone ulanmagan
+        </p>
+      ) : (
+        <div className="space-y-0.5">
+          {devices.map((d) => (
+            <SidebarItem
+              key={d.udid}
+              active={d.udid === activeUdid && currentTab === "diagnostics"}
+              onClick={() => {
+                onSelectDevice(d.udid);
+                setCurrentTab("diagnostics");
+              }}
+              icon={Smartphone}
+              label={d.name || d.marketing_name}
+              title={`${d.marketing_name} · iOS ${d.ios_version}`}
+              trailing={
+                d.battery ? (
+                  <span className="text-[11px] tabular-nums text-[var(--ws-label-3)]">
+                    {d.battery.charge_percent}%
+                  </span>
+                ) : null
+              }
+            />
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div className="flex-1" {...titlebarProps} />
+
+    {isMigrating && (
+      <div className="mx-2.5 mb-2 p-2.5 rounded-lg bg-white/[0.06] border border-white/[0.06]">
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <button
+            onClick={() => setCurrentTab("transfer")}
+            className="text-[12px] font-medium text-white truncate text-left"
+          >
+            {progressLabel}
+          </button>
+          <button
+            onClick={onCancel}
+            title="To'xtatish"
+            className="ws-icon-btn !w-5 !h-5 shrink-0"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="ws-progress">
+          <div style={{ width: `${Math.max(progress, 2)}%` }} />
+        </div>
+      </div>
+    )}
+
+    <div className="px-2.5 pb-3 space-y-0.5">
+      <SidebarItem
+        active={currentTab === "settings"}
+        onClick={() => setCurrentTab("settings")}
+        icon={Settings}
+        label="Sozlamalar"
+        title="Sozlamalar (⌘,)"
+      />
+      <SidebarItem
+        active={false}
+        onClick={onOpenAbout}
+        icon={Info}
+        label="WireShift haqida"
+      />
+    </div>
+  </aside>
+);

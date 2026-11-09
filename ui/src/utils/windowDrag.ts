@@ -1,40 +1,30 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
 
-/**
- * Initiates native Tauri window drag on mousedown for custom titlebar/drag regions.
- * Ignores clicks on buttons, inputs, links, or elements marked with data-no-drag.
- */
-export const handleWindowDrag = async (e: React.MouseEvent) => {
-  // Only primary (left) mouse button
-  if (e.button !== 0) return
+// One handler pair for every custom titlebar/toolbar. We do NOT use
+// data-tauri-drag-region, because Tauri's built-in script also toggles
+// maximize on double-click and the two fought each other.
 
-  const target = e.target as HTMLElement
-  if (target.closest('button, input, select, textarea, a, [data-no-drag]')) {
-    return
-  }
+const INTERACTIVE = 'button, input, select, textarea, a, [role="button"], [data-no-drag]'
 
-  try {
-    const appWindow = getCurrentWindow()
-    await appWindow.startDragging()
-  } catch (err) {
-    // In web browser dev preview, startDragging may not be available; ignore safely
-    console.debug('Window startDragging not available or error:', err)
-  }
+const isInteractive = (target: EventTarget | null) =>
+  target instanceof HTMLElement && !!target.closest(INTERACTIVE)
+
+export const handleWindowDrag = (e: React.MouseEvent) => {
+  // first click of a left-button press only; the second click belongs to double-click
+  if (e.button !== 0 || e.detail !== 1 || isInteractive(e.target)) return
+  getCurrentWindow()
+    .startDragging()
+    .catch((err) => console.debug('startDragging unavailable:', err))
 }
 
-/**
- * Toggles window maximize/restore on double clicking custom titlebars.
- */
-export const handleWindowDoubleClick = async (e: React.MouseEvent) => {
-  const target = e.target as HTMLElement
-  if (target.closest('button, input, select, textarea, a, [data-no-drag]')) {
-    return
-  }
+export const handleWindowDoubleClick = (e: React.MouseEvent) => {
+  if (e.button !== 0 || isInteractive(e.target)) return
+  // Rust side follows System Settings > Desktop & Dock > "Double-click a window's title bar to"
+  invoke('titlebar_double_click').catch((err) => console.debug('titlebar double-click:', err))
+}
 
-  try {
-    const appWindow = getCurrentWindow()
-    await appWindow.toggleMaximize()
-  } catch (err) {
-    console.debug('Window toggleMaximize not available or error:', err)
-  }
+export const titlebarProps = {
+  onMouseDown: handleWindowDrag,
+  onDoubleClick: handleWindowDoubleClick,
 }

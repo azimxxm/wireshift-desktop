@@ -3,7 +3,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tokio::process::Command;
 use crate::device::Bridge;
-use crate::device::model::{resolve_marketing_name, BatteryInfo, ConnectedDevice, ConnectionSpeed, IcloudStatus, StorageInfo};
+use crate::device::model::{resolve_marketing_name, BatteryInfo, ConnectedDevice, ConnectionSpeed, DeviceDetails, IcloudStatus, StorageInfo};
+use crate::device::native;
 
 struct CachedScan {
     udids: Vec<String>,
@@ -106,6 +107,8 @@ impl DeviceDetector {
             port_location: port_desc,
         };
 
+        let details = Self::build_details(&info);
+
         Ok(ConnectedDevice {
             udid: udid.to_string(),
             name,
@@ -119,7 +122,30 @@ impl DeviceDetector {
             storage,
             icloud,
             connection,
+            details,
         })
+    }
+
+    /// Pick the extra read-only lockdown values used by the diagnostics page
+    fn build_details(info: &HashMap<String, String>) -> DeviceDetails {
+        let get = |k: &str| info.get(k).filter(|v| !v.is_empty()).cloned();
+        DeviceDetails {
+            model_number: get("ModelNumber"),
+            region_info: get("RegionInfo"),
+            build_version: get("BuildVersion"),
+            hardware_model: get("HardwareModel"),
+            chip: get("HardwarePlatform"),
+            baseband_version: get("BasebandVersion"),
+            imei: get("InternationalMobileEquipmentIdentity"),
+            imei2: get("InternationalMobileEquipmentIdentity2"),
+            phone_number: get("PhoneNumber"),
+            sim_status: get("SIMStatus"),
+            activation_state: get("ActivationState"),
+            screen_locked: info.get("PasswordProtected").map(|v| v == "true"),
+            wifi_address: get("WiFiAddress"),
+            bluetooth_address: get("BluetoothAddress"),
+            time_zone: get("TimeZone"),
+        }
     }
 
     /// Parse ioreg to extract real negotiated UsbLinkSpeed and locationID for a device
@@ -172,6 +198,18 @@ impl DeviceDetector {
         (link_speed_mbps, port_desc)
     }
 
+    /// Real Mac model identifier (e.g. "Mac14,6") instead of a hardcoded name
+    async fn mac_model() -> String {
+        Command::new("sysctl")
+            .args(["-n", "hw.model"])
+            .output()
+            .await
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "Mac".into())
+    }
+
     /// Full cable & port diagnostic for MacBook M1 Pro and connected iPhone
     pub async fn diagnose_cable(udid: &str) -> crate::device::model::CableDiagnostic {
         let (link_speed_mbps, port_desc) = Self::fetch_usb_link_speed(udid).await;
@@ -195,21 +233,21 @@ impl DeviceDetector {
             is_cable_throttled: is_throttled,
             port_side: port_side.into(),
             port_name: port_desc,
-            mac_model: "MacBook Pro M1 Pro (Thunderbolt 4 / USB4)".into(),
+            mac_model: Self::mac_model().await,
             verdict_summary: if is_throttled {
                 "⚠️ Kabel tezligi USB 2.0 (480 Mbps) ga cheklangan".into()
             } else {
                 "⚡ A'lo darajada! 10 Gbps High-Speed Direct".into()
             },
             verdict_details: if is_throttled {
-                "Sizning MacBook M1 Pro (o'ng tomon porti) va iPhone 16 Pro Max 10 Gbps (1,250 MB/s) tezlikni to'liq quvvatlaydi. Lekin hozir ulangan kabel faqat 480 Mbps (USB 2.0) tezlik beryapti (iPhone qutisidagi oq kabel faqat quvvatlash uchun). Agar Thunderbolt 4 yoki USB 3.2 kabel ulasangiz, fayl ko'chirish 10 barobarga tezlashadi!".into()
+                "Hozirgi kabel faqat 480 Mbps (USB 2.0) tezlik beryapti — iPhone qutisidagi oddiy kabel shunday. iPhone 15 Pro va undan yangilari USB 3 (10 Gbps) ni qo'llaydi: USB 3.2 yoki Thunderbolt kabel ulasangiz, ko'chirish taxminan 10 barobar tezlashadi.".into()
             } else {
                 "Kabelingiz USB 3.2 Gen 2 / Thunderbolt yuqori tezligida ulandi. 4K/ProRes videolarni eng maksimal tezlikda eksport qila olasiz.".into()
             },
         }
     }
 
-    /// Query battery domain: com.apple.mobile.battery
+    /// Battery: charge level from lockdown + real health data from diagnostics_relay
     async fn fetch_battery(udid: &str) -> Option<BatteryInfo> {
         let output = Bridge::tokio_cmd("ideviceinfo")
             .arg("-u")
@@ -225,32 +263,63 @@ impl DeviceDetector {
         }
 
         let map = Self::parse_key_value(&String::from_utf8_lossy(&output.stdout));
-        let cycle_count: u32 = map.get("CycleCount").and_then(|v| v.parse().ok()).unwrap_or(0);
-        let design_capacity: u32 = map.get("DesignCapacity").and_then(|v| v.parse().ok()).unwrap_or(100);
-        let full_charge_capacity: u32 = map.get("FullChargeCapacity")
-            .or_else(|| map.get("BatteryCurrentCapacity"))
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(design_capacity);
-        let is_charging: bool = map.get("BatteryIsCharging").map(|v| v == "true").unwrap_or(false);
+        // NOTE: BatteryCurrentCapacity is the charge level (%), not battery health
+        let charge_percent: u32 = map.get("BatteryCurrentCapacity").and_then(|v| v.parse().ok()).unwrap_or(0);
+        let is_charging = map.get("BatteryIsCharging").map(|v| v == "true").unwrap_or(false);
 
-        let health_percent = if design_capacity > 0 && design_capacity >= full_charge_capacity {
-            let pct = (full_charge_capacity as f64 / design_capacity as f64) * 100.0;
-            pct.clamp(0.0, 100.0).round() as u32
-        } else {
-            full_charge_capacity.clamp(0, 100)
+        let mut info = BatteryInfo {
+            charge_percent,
+            is_charging,
+            cycle_count: None,
+            health_percent: None,
+            design_capacity_mah: None,
+            nominal_capacity_mah: None,
+            voltage_mv: None,
+            adapter_watts: None,
         };
 
-        Some(BatteryInfo {
-            cycle_count,
-            health_percent,
-            design_capacity,
-            current_capacity: full_charge_capacity,
-            is_charging,
-        })
+        let id = udid.to_string();
+        let xml = tokio::task::spawn_blocking(move || native::ioregistry_xml(&id, Some("AppleSmartBattery"), None))
+            .await
+            .ok()
+            .and_then(|r| r.map_err(|e| tracing::debug!("battery ioreg: {}", e)).ok());
+
+        if let Some(xml) = xml {
+            let int = |key: &str| -> Option<i64> {
+                let re = regex::Regex::new(&format!(r"<key>{}</key>\s*<integer>(-?\d+)</integer>", key)).ok()?;
+                re.captures(&xml)?.get(1)?.as_str().parse().ok()
+            };
+            let positive = |v: Option<i64>| v.filter(|n| *n > 0).map(|n| n as u32);
+
+            info.cycle_count = int("CycleCount").map(|n| n.max(0) as u32);
+            info.design_capacity_mah = positive(int("DesignCapacity"));
+            info.nominal_capacity_mah = positive(int("NominalChargeCapacity")).or(positive(int("AppleRawMaxCapacity")));
+            info.voltage_mv = positive(int("AppleRawBatteryVoltage")).or(positive(int("Voltage")));
+            info.adapter_watts = positive(int("Watts"));
+            if let (Some(nominal), Some(design)) = (info.nominal_capacity_mah, info.design_capacity_mah) {
+                info.health_percent = Some(((nominal as f64 / design as f64) * 100.0).round().min(100.0) as u32);
+            }
+        }
+
+        Some(info)
     }
 
-    /// Query disk storage domain: com.apple.disk_usage
+    /// Storage: AFC devinfo (FSTotalBytes/FSFreeBytes). iOS 17+ no longer returns
+    /// TotalDiskCapacity in com.apple.disk_usage, so lockdown is only a fallback.
     async fn fetch_storage(udid: &str) -> Option<StorageInfo> {
+        let id = udid.to_string();
+        if let Ok(Ok((total_bytes, available_bytes))) =
+            tokio::task::spawn_blocking(move || native::filesystem_info(&id)).await
+        {
+            if total_bytes > 0 {
+                return Some(StorageInfo {
+                    total_bytes,
+                    available_bytes,
+                    used_bytes: total_bytes.saturating_sub(available_bytes),
+                });
+            }
+        }
+
         let output = Bridge::tokio_cmd("ideviceinfo")
             .arg("-u")
             .arg(udid)
@@ -259,24 +328,13 @@ impl DeviceDetector {
             .output()
             .await
             .ok()?;
-
-        if !output.status.success() {
-            return None;
-        }
-
         let map = Self::parse_key_value(&String::from_utf8_lossy(&output.stdout));
-        let total_bytes: u64 = map.get("TotalDiskCapacity").and_then(|v| v.parse().ok()).unwrap_or(0);
+        let total_bytes: u64 = map.get("TotalDiskCapacity").and_then(|v| v.parse().ok())?;
         let available_bytes: u64 = map.get("TotalDataAvailable").and_then(|v| v.parse().ok()).unwrap_or(0);
-        let used_bytes = total_bytes.saturating_sub(available_bytes);
-
-        if total_bytes == 0 {
-            return None;
-        }
-
         Some(StorageInfo {
             total_bytes,
             available_bytes,
-            used_bytes,
+            used_bytes: total_bytes.saturating_sub(available_bytes),
         })
     }
 

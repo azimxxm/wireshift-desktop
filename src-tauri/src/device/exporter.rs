@@ -14,7 +14,7 @@ pub struct MediaItem {
     pub album: String,
     pub size_bytes: u64,
     pub date: String,
-    pub kind: String, // "video", "photo", "audio", "file"
+    pub kind: String, // "video", "photo", "audio", "sidecar", "file"
     pub extension: String,
 }
 
@@ -52,6 +52,11 @@ impl FileExporter {
 
     pub fn is_cancelled() -> bool {
         EXPORT_CANCELLED.load(Ordering::SeqCst)
+    }
+
+    /// Local Mac folder with cached thumbnails (~/.cache/wireshift)
+    pub fn cache_root() -> PathBuf {
+        dirs_home().unwrap_or_else(|| PathBuf::from("/tmp")).join(".cache/wireshift")
     }
 
     /// Resolve path string (expanding ~ to $HOME if needed)
@@ -240,6 +245,11 @@ impl FileExporter {
                         photo_count += 1;
                         photo_bytes += size_bytes;
                         "photo".to_string()
+                    } else if ext == "AAE" {
+                        // Photos edit sidecar (small plist next to the original photo)
+                        other_count += 1;
+                        other_bytes += size_bytes;
+                        "sidecar".to_string()
                     } else if ext == "M4A" || ext == "WAV" || ext == "AAC" || ext == "MP3" {
                         other_count += 1;
                         other_bytes += size_bytes;

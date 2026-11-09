@@ -1,9 +1,33 @@
 export interface BatteryInfo {
-  cycle_count: number;
-  health_percent: number;
-  design_capacity: number;
-  current_capacity: number;
+  /** charge level 0-100 */
+  charge_percent: number;
   is_charging: boolean;
+  cycle_count: number | null;
+  /** maximum capacity vs. new (Battery Health) */
+  health_percent: number | null;
+  design_capacity_mah: number | null;
+  nominal_capacity_mah: number | null;
+  voltage_mv: number | null;
+  adapter_watts: number | null;
+}
+
+export interface DeviceDetails {
+  model_number: string | null;
+  region_info: string | null;
+  build_version: string | null;
+  hardware_model: string | null;
+  chip: string | null;
+  baseband_version: string | null;
+  imei: string | null;
+  imei2: string | null;
+  phone_number: string | null;
+  sim_status: string | null;
+  activation_state: string | null;
+  /** lockdown PasswordProtected: true while the screen is locked */
+  screen_locked: boolean | null;
+  wifi_address: string | null;
+  bluetooth_address: string | null;
+  time_zone: string | null;
 }
 
 export interface StorageInfo {
@@ -59,6 +83,7 @@ export interface ConnectedDevice {
   storage: StorageInfo | null;
   icloud: IcloudStatus | null;
   connection: ConnectionSpeed;
+  details: DeviceDetails;
 }
 
 export interface SystemStatus {
@@ -85,7 +110,7 @@ export interface MediaItem {
   album: string;
   size_bytes: number;
   date: string;
-  kind: 'video' | 'photo' | 'audio' | 'file';
+  kind: 'video' | 'photo' | 'audio' | 'sidecar' | 'file';
   extension: string;
 }
 

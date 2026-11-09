@@ -2,11 +2,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatteryInfo {
-    pub cycle_count: u32,
-    pub health_percent: u32,
-    pub design_capacity: u32,
-    pub current_capacity: u32,
+    /// Current charge level 0-100 (what the status bar shows)
+    pub charge_percent: u32,
     pub is_charging: bool,
+    /// Fields below come from diagnostics_relay (AppleSmartBattery); None when unavailable
+    pub cycle_count: Option<u32>,
+    /// Maximum capacity vs. new, like Settings > Battery > Battery Health
+    pub health_percent: Option<u32>,
+    pub design_capacity_mah: Option<u32>,
+    pub nominal_capacity_mah: Option<u32>,
+    pub voltage_mv: Option<u32>,
+    pub adapter_watts: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,6 +74,28 @@ pub struct ConnectedDevice {
     pub storage: Option<StorageInfo>,
     pub icloud: Option<IcloudStatus>,
     pub connection: ConnectionSpeed,
+    pub details: DeviceDetails,
+}
+
+/// Extra lockdown values shown on the diagnostics page (all read-only)
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DeviceDetails {
+    pub model_number: Option<String>,
+    pub region_info: Option<String>,
+    pub build_version: Option<String>,
+    pub hardware_model: Option<String>,
+    pub chip: Option<String>,
+    pub baseband_version: Option<String>,
+    pub imei: Option<String>,
+    pub imei2: Option<String>,
+    pub phone_number: Option<String>,
+    pub sim_status: Option<String>,
+    pub activation_state: Option<String>,
+    /// lockdown "PasswordProtected": true while the screen is locked
+    pub screen_locked: Option<bool>,
+    pub wifi_address: Option<String>,
+    pub bluetooth_address: Option<String>,
+    pub time_zone: Option<String>,
 }
 
 /// Helper function to convert raw iOS ProductType (e.g. iPhone16,2) to marketing name
@@ -104,6 +132,11 @@ pub fn resolve_marketing_name(product_type: &str) -> String {
         "iPhone17,2" => "iPhone 16 Pro Max".into(),
         "iPhone17,3" => "iPhone 16".into(),
         "iPhone17,4" => "iPhone 16 Plus".into(),
+        "iPhone17,5" => "iPhone 16e".into(),
+        "iPhone18,1" => "iPhone 17 Pro".into(),
+        "iPhone18,2" => "iPhone 17 Pro Max".into(),
+        "iPhone18,3" => "iPhone 17".into(),
+        "iPhone18,4" => "iPhone Air".into(),
         other => other.to_string(),
     }
 }
