@@ -90,7 +90,7 @@ Ikkinchi yo'l rasm eskizlari keshini o'chiradi. Mac'ga ko'chirilgan rasm va vide
 | «Ishonish» chiqmadi | iPhone'da: Sozlamalar → Umumiy → O'tkazish yoki tiklash → Tiklash → **Joylashuv va maxfiylikni tiklash**, so'ng qayta ulang |
 | «Apple could not verify» | System Settings → Privacy & Security → **Open Anyway**, yoki 1-usuldan foydalaning |
 | «WireShift is damaged» | Terminal'da: `xattr -dr com.apple.quarantine /Applications/WireShift.app` |
-| Ko'chirish sekin (~38 MB/s) | Kabel USB 2.0. **Kabel tezligi** bo'limida qaysi kabel kerakligi ko'rsatilgan (iPhone 15 Pro va yangi Pro modellar uchun 10 Gbps kabel ~15 barobar tez) |
+| Ko'chirish sekin (~38 MB/s) | Kabel USB 2.0. **Kabel tezligi** bo'limida qaysi kabel kerakligi ko'rsatilgan (iPhone 15 Pro va yangi Pro modellar uchun 10 Gbps kabel taxminan 10 barobar tez) |
 | Intel Mac'da ishlamayapti | Hozircha faqat Apple Silicon qo'llab-quvvatlanadi |
 
 ---
