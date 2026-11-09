@@ -22,7 +22,7 @@ export function App() {
 
   // Target Destination Mode: 'pc' (1 phone required) or 'phone' (2 phones required)
   const [targetMode, setTargetMode] = useState<'phone' | 'pc'>('pc')
-  const [exportPath, setExportPath] = useState<string>('~/Pictures/WireShift_Exports')
+  const [exportPath, setExportPath] = useState<string>('')
   const [dcimCount, setDcimCount] = useState<number>(0)
   const [copiedCount, setCopiedCount] = useState<number>(0)
   const [copiedBytes, setCopiedBytes] = useState<number>(0)
@@ -196,6 +196,16 @@ export function App() {
   // Export specific user-selected files (e.g. from MediaExplorer)
   const handleExportSelectedMedia = async (paths: string[]) => {
     if (!sourceDevice || paths.length === 0) return
+    let targetDir = exportPath
+    if (!targetDir) {
+      try {
+        targetDir = await invoke<string>('get_default_export_dir')
+        setExportPath(targetDir)
+      } catch {
+        targetDir = 'Pictures/WireShift_Exports'
+      }
+    }
+
     setIsMigrating(true)
     setIsExportSuccess(false)
     setProgress(3)
@@ -244,7 +254,7 @@ export function App() {
     try {
       await invoke('export_selected_media', {
         udid: sourceDevice.udid,
-        destinationDir: exportPath,
+        destinationDir: targetDir,
         paths,
       })
       clearInterval(progressTimer)
@@ -495,7 +505,7 @@ export function App() {
               catalog={catalog}
               isLoading={isCatalogLoading}
               onRefreshCatalog={() => loadMediaCatalog()}
-              destinationDir={exportPath}
+              destinationDir={exportPath || 'Yuklanmoqda...'}
               onPickDestinationDir={handlePickExportFolder}
               onExportSelected={handleExportSelectedMedia}
               isExporting={isMigrating}

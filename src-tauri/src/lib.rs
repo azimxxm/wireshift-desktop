@@ -87,8 +87,10 @@ async fn run_cable_benchmark(udid: String) -> Result<serde_json::Value, String> 
 
 #[tauri::command]
 async fn open_folder_in_finder(path: String) -> Result<(), String> {
+    let resolved = FileExporter::resolve_path(&path);
+    let _ = tokio::fs::create_dir_all(&resolved).await;
     let _ = tokio::process::Command::new("open")
-        .arg(&path)
+        .arg(&resolved)
         .spawn()
         .map_err(|e| format!("Failed to open folder: {}", e))?;
     Ok(())
@@ -103,7 +105,7 @@ async fn check_system_status() -> Result<serde_json::Value, String> {
         "usbmuxd": usbmuxd_running,
         "libimobiledevice": has_ideviceinfo,
         "bundle": "uz.azimjondev.wireshift",
-        "version": "1.0.1"
+        "version": "1.0.2"
     }))
 }
 

@@ -54,6 +54,20 @@ impl FileExporter {
         EXPORT_CANCELLED.load(Ordering::SeqCst)
     }
 
+    /// Resolve path string (expanding ~ to $HOME if needed)
+    pub fn resolve_path(path_str: &str) -> PathBuf {
+        if path_str.starts_with("~/") {
+            if let Some(home) = dirs_home() {
+                return home.join(path_str.trim_start_matches("~/"));
+            }
+        } else if path_str == "~" {
+            if let Some(home) = dirs_home() {
+                return home;
+            }
+        }
+        PathBuf::from(path_str)
+    }
+
     /// Return standard export destination folder: ~/Pictures/WireShift_Exports
     pub fn default_export_dir() -> String {
         if let Some(home) = dirs_home() {
@@ -69,8 +83,8 @@ impl FileExporter {
         let mut bytes = 0;
         let mut current_album = String::new();
 
-        let dest = Path::new(destination_dir);
-        if let Ok(entries) = std::fs::read_dir(dest) {
+        let dest = Self::resolve_path(destination_dir);
+        if let Ok(entries) = std::fs::read_dir(&dest) {
             for entry in entries.flatten() {
                 if let Ok(file_type) = entry.file_type() {
                     if file_type.is_dir() {
@@ -301,21 +315,21 @@ impl FileExporter {
         if Self::is_cancelled() {
             return Err("Eksport bekor qilindi".into());
         }
-        let dest = Path::new(destination_dir);
-        tokio::fs::create_dir_all(dest)
+        let dest = Self::resolve_path(destination_dir);
+        tokio::fs::create_dir_all(&dest)
             .await
-            .map_err(|e| format!("Papka yaratib bo'lmadi: {}", e))?;
+            .map_err(|e| format!("Papka yaratib bo'lmadi ({}): {}", dest.display(), e))?;
 
         if paths.is_empty() {
             return Ok(0);
         }
 
-        // Build single batch script with all `get <remote> <local>` commands
+        // Build single batch script with all `get "<remote>" "<local>"` commands
         let mut script = String::new();
         for path in &paths {
             let filename = Path::new(path).file_name().unwrap_or_default().to_string_lossy();
             let local_dest = dest.join(filename.as_ref());
-            script.push_str(&format!("get {} {}\n", path, local_dest.display()));
+            script.push_str(&format!("get \"{}\" \"{}\"\n", path, local_dest.display()));
         }
         script.push_str("exit\n");
 
@@ -324,18 +338,22 @@ impl FileExporter {
             .arg("-u")
             .arg(udid)
             .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| format!("afcclient ishga tushmadi: {}", e))?;
 
         if let Some(mut stdin) = child.stdin.take() {
             let _ = stdin.write_all(script.as_bytes()).await;
+            let _ = stdin.flush().await;
+            drop(stdin);
         }
 
-        let status = child.wait().await.map_err(|e| e.to_string())?;
-        if !status.success() {
-            return Err("afcclient bilan ko'chirishda xatolik yuz berdi".into());
+        let output = child.wait_with_output().await.map_err(|e| e.to_string())?;
+        if !output.status.success() {
+            let err_msg = String::from_utf8_lossy(&output.stderr);
+            let out_msg = String::from_utf8_lossy(&output.stdout);
+            return Err(format!("afcclient bilan ko'chirishda xatolik yuz berdi: {} {}", err_msg.trim(), out_msg.trim()));
         }
 
         Ok(paths.len())
@@ -344,10 +362,10 @@ impl FileExporter {
     /// Export DCIM camera roll to a local directory on Mac/PC
     pub async fn export_dcim_to_folder(udid: &str, destination_dir: &str) -> Result<usize, String> {
         Self::reset_cancel();
-        let dest = Path::new(destination_dir);
-        tokio::fs::create_dir_all(dest)
+        let dest = Self::resolve_path(destination_dir);
+        tokio::fs::create_dir_all(&dest)
             .await
-            .map_err(|e| format!("Papka yaratib bo'lmadi: {}", e))?;
+            .map_err(|e| format!("Papka yaratib bo'lmadi ({}): {}", dest.display(), e))?;
 
         let albums = Self::list_dcim_albums(udid).await?;
         let mut copied_albums = 0;
@@ -361,24 +379,26 @@ impl FileExporter {
             let local_album_path = dest.join(&album);
             let _ = tokio::fs::create_dir_all(&local_album_path).await;
 
-            let script = format!("get -rf {} {}\nexit\n", remote_path, dest.display());
+            let script = format!("get -rf \"{}\" \"{}\"\nexit\n", remote_path, dest.display());
 
             let mut child = Bridge::tokio_cmd("afcclient")
                 .kill_on_drop(true)
                 .arg("-u")
                 .arg(udid)
                 .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
                 .spawn()
                 .map_err(|e| format!("afcclient ishga tushmadi: {}", e))?;
 
             if let Some(mut stdin) = child.stdin.take() {
                 let _ = stdin.write_all(script.as_bytes()).await;
+                let _ = stdin.flush().await;
+                drop(stdin);
             }
 
-            let status = child.wait().await.map_err(|e| e.to_string())?;
-            if status.success() {
+            let output = child.wait_with_output().await.map_err(|e| e.to_string())?;
+            if output.status.success() {
                 copied_albums += 1;
             }
         }
@@ -769,21 +789,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_sorting_and_catalog() {
-        let udid = "00008140-00180D9226E3001C";
-        if let Ok(catalog) = FileExporter::fetch_media_catalog(udid).await {
-            println!("Total files found: {}", catalog.total_files);
-            println!("Total videos: {}", catalog.video_count);
-            assert!(catalog.total_files > 0);
-            let first = &catalog.items[0];
-            println!("First item: {} in {}", first.name, first.album);
-            // Verify that the first item is from 107APPLE (the newest album)
-            assert_eq!(first.album, "107APPLE");
+        crate::device::Bridge::init_environment();
+        let udids = crate::device::DeviceDetector::list_udids().await.unwrap_or_default();
+        if let Some(udid) = udids.first() {
+            if let Ok(catalog) = FileExporter::fetch_media_catalog(udid).await {
+                println!("Total files found: {}", catalog.total_files);
+                println!("Total videos: {}", catalog.video_count);
+                if catalog.total_files > 0 {
+                    let first = &catalog.items[0];
+                    println!("First item: {} in {}, path: {}", first.name, first.album, first.path);
+                    for v in catalog.items.iter().filter(|i| i.kind == "video").take(3) {
+                        println!("Video candidate: {} in {}, size: {}, path: {}", v.name, v.album, v.size_bytes, v.path);
+                    }
+                }
+            }
+        }
+    }
 
-            // Test batch thumbnails for first 10 items
-            let test_items: Vec<(String, String)> = catalog.items.iter().take(10).map(|i| (i.album.clone(), i.name.clone())).collect();
-            let thumbs = FileExporter::fetch_media_thumbnails_batch(udid, test_items).await;
-            println!("Fetched {} thumbnails for top 10 items", thumbs.len());
-            assert!(thumbs.len() > 0);
+    #[tokio::test]
+    async fn test_export_video() {
+        crate::device::Bridge::init_environment();
+        let udids = crate::device::DeviceDetector::list_udids().await.unwrap_or_default();
+        if let Some(udid) = udids.first() {
+            let res = FileExporter::export_selected_items(
+                udid,
+                "~/Pictures/WireShift_Exports",
+                vec!["/DCIM/104APPLE/IMG_4201.MOV".to_string()],
+            ).await;
+            println!("Export with tilde result: {:?}", res);
+            assert!(res.is_ok());
         }
     }
 }

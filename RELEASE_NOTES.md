@@ -1,20 +1,21 @@
-## WireShift v1.0.1 — Standalone Zero-Dependency Apple Silicon Release 🚀
+## WireShift v1.0.2 — Fast Video Export & Path Resolution Fix 🚀
 
 Ultra-Fast Direct Cable iPhone Migration, Selective Media Extraction & Hardware Diagnostics for macOS (Apple Silicon M1/M2/M3/M4).
 
-### 🌟 What's New in v1.0.1
+### 🌟 What's Fixed in v1.0.2
 
-- 📦 **Zero-Configuration Standalone MobileDevice Bridge:**
-  - `libimobiledevice` (`idevice_id`, `ideviceinfo`, `afcclient`) va barcha kerakli dinamik kutubxonalar (`.dylib`) bevosita ilova paketi (`WireShift.app`) ichiga joylandi.
-  - Endi yangi yoki toza Mac kompyuterlarida Homebrew yoki qo'shimcha drayver o'rnatish talab etilmaydi — «Open qilding — ideal ishlaydi»!
-- 🔌 **Instant Cable Auto-Detection:**
-  - Mac bilan kabel orqali ulangan iPhone'lar dastur ochilishi bilan 1 soniyada avtomatik aniqlanadi.
-- ⚡ **Enhanced Runtime Environment Resolution:**
-  - macOS GUI muhitida dastur ichki resurslaridan tashqari tizim yo'llarini dinamik aniqlovchi xavfsiz Bridge resolver qo'shildi.
+- 🎬 **Video & Media Export Destination Fix:**
+  - Resolved Unix tilde expansion (`~`) in export destination directories. Previously, macOS GUI apps running from `/Applications` treated `~` literally against root (`/`), causing file system errors. Now all paths expand directly to `$HOME/Pictures/WireShift_Exports`.
+- 🛡️ **Quoted Argument Safety in `afcclient`:**
+  - Remote and local paths containing spaces or special characters are safely escaped with quotes (`get "<remote>" "<local>"`), preventing argument parsing failures during 4K/ProRes video transfers.
+- ⚡ **Stream Flush & Output Diagnostic Capture:**
+  - Interactive stdin stream is explicitly flushed and closed, and child process stdout/stderr streams are captured to provide transparent error reporting if a transfer fails.
+- 📂 **Finder Folder Reveal (`open_folder_in_finder`):**
+  - Guarantees the destination directory exists before revealing in Finder, ensuring 1-click access to exported videos and photos.
 
 ---
 
 ### 📦 Installation
 
-- **Option 1 (Recommended):** `WireShift_1.0.1_aarch64.pkg` faylini yuklab oling va macOS installer orqali 1-click bilan o'rnating.
-- **Option 2:** `WireShift_1.0.1_aarch64.dmg` faylini oching va `WireShift.app` ni Applications papkasiga tashlang.
+- **Option 1 (Recommended):** `WireShift_1.0.2_aarch64.pkg` faylini yuklab oling va macOS installer orqali o'rnating.
+- **Option 2:** `WireShift_1.0.2_aarch64.dmg` faylini oching va `WireShift.app` ni Applications papkasiga tashlang.
