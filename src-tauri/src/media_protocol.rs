@@ -78,7 +78,7 @@ pub fn handle(request: Request<Vec<u8>>) -> Response<Vec<u8>> {
     };
     let device_path = percent_decode_str(encoded_path).decode_utf8_lossy().to_string();
     // Only allow the media folders we list in the catalog
-    if !(device_path.starts_with("/DCIM/") || device_path.starts_with("/Recordings/") || device_path.starts_with("/Downloads/"))
+    if !(device_path.starts_with("/DCIM/") || device_path.starts_with("/Recordings/"))
         || device_path.contains("..")
     {
         return error(StatusCode::FORBIDDEN, "path not allowed");

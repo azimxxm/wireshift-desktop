@@ -34,21 +34,17 @@ pub struct ConnectionSpeed {
     pub max_bandwidth_mbps: u32,
     pub is_cable_throttled: bool,
     pub negotiated_speed_mbps: u32,
-    pub port_location: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CableDiagnostic {
+    /// Link speed macOS negotiated with the phone (ioreg UsbLinkSpeed)
     pub negotiated_speed_mbps: u32,
-    pub negotiated_speed_text: String,
-    pub max_device_speed_mbps: u32,
-    pub max_port_speed_mbps: u32,
+    /// Fastest link this iPhone model supports (480 or 10000)
+    pub device_max_mbps: u32,
     pub is_cable_throttled: bool,
-    pub port_side: String,
-    pub port_name: String,
+    /// Mac model identifier, e.g. "Mac14,6"
     pub mac_model: String,
-    pub verdict_summary: String,
-    pub verdict_details: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,8 +52,7 @@ pub struct CableBenchmarkResult {
     pub speed_mb_s: f64,
     pub transferred_mb: f64,
     pub elapsed_seconds: f64,
-    pub cable_grade: String,
-    pub verdict: String,
+    pub sample_file: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,5 +133,24 @@ pub fn resolve_marketing_name(product_type: &str) -> String {
         "iPhone18,3" => "iPhone 17".into(),
         "iPhone18,4" => "iPhone Air".into(),
         other => other.to_string(),
+    }
+}
+
+/// Only Pro iPhones with USB-C have a USB 3 (10 Gbps) controller;
+/// iPhone 15/16/17 non-Pro, 16e and Air are USB 2.0 (480 Mbps).
+pub fn supports_usb3(product_type: &str) -> bool {
+    matches!(
+        product_type,
+        "iPhone16,1" | "iPhone16,2" | "iPhone17,1" | "iPhone17,2" | "iPhone18,1" | "iPhone18,2"
+    )
+}
+
+/// Human label for a negotiated USB link speed in Mbps
+pub fn usb_label(mbps: u32) -> String {
+    match mbps {
+        m if m >= 10000 => "USB 3 · 10 Gbps".into(),
+        m if m >= 5000 => "USB 3 · 5 Gbps".into(),
+        m if m > 0 => format!("USB 2.0 · {} Mbps", m),
+        _ => "Noma'lum".into(),
     }
 }

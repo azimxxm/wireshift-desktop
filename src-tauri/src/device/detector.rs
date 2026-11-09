@@ -3,7 +3,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tokio::process::Command;
 use crate::device::Bridge;
-use crate::device::model::{resolve_marketing_name, BatteryInfo, ConnectedDevice, ConnectionSpeed, DeviceDetails, IcloudStatus, StorageInfo};
+use crate::device::model::{resolve_marketing_name, supports_usb3, usb_label, BatteryInfo, ConnectedDevice, ConnectionSpeed, DeviceDetails, IcloudStatus, StorageInfo};
 use crate::device::native;
 
 struct CachedScan {
@@ -91,20 +91,15 @@ impl DeviceDetector {
         });
 
         // 5. Connection bus speed analysis
-        let is_usb3_capable = product_type.starts_with("iPhone16,") || product_type.starts_with("iPhone17,");
-        let (link_speed_mbps, port_desc) = Self::fetch_usb_link_speed(udid).await;
+        let is_usb3_capable = supports_usb3(&product_type);
+        let link_speed_mbps = Self::fetch_usb_link_speed(udid).await;
         let is_cable_throttled = is_usb3_capable && link_speed_mbps <= 480;
 
         let connection = ConnectionSpeed {
-            bus_type: if link_speed_mbps >= 5000 {
-                format!("USB 3.2 Gen 2 ({} Gbps)", link_speed_mbps / 1000)
-            } else {
-                "USB 2.0 (480 Mbps)".into()
-            },
+            bus_type: usb_label(link_speed_mbps),
             max_bandwidth_mbps: if is_usb3_capable { 10000 } else { 480 },
             is_cable_throttled,
             negotiated_speed_mbps: link_speed_mbps,
-            port_location: port_desc,
         };
 
         let details = Self::build_details(&info);
@@ -148,54 +143,30 @@ impl DeviceDetector {
         }
     }
 
-    /// Parse ioreg to extract real negotiated UsbLinkSpeed and locationID for a device
-    pub async fn fetch_usb_link_speed(_udid: &str) -> (u32, String) {
-        let output = match Command::new("ioreg")
-            .args(&["-p", "IOUSB", "-w", "0", "-l"])
-            .output()
-            .await
-        {
+    /// Read the negotiated UsbLinkSpeed of the connected iPhone from ioreg (Mbps)
+    pub async fn fetch_usb_link_speed(_udid: &str) -> u32 {
+        let output = match Command::new("ioreg").args(["-p", "IOUSB", "-w", "0", "-l"]).output().await {
             Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
-            _ => return (480, "MacBook Thunderbolt 4 / USB-C".into()),
+            _ => return 0,
         };
 
-        let mut current_is_target = false;
-        let mut link_speed_mbps = 480;
-        let mut port_desc = "MacBook Thunderbolt 4 / USB-C".to_string();
-
+        let mut in_iphone = false;
         for line in output.lines() {
-            if line.contains("+-o iPhone@") {
-                current_is_target = true;
-            } else if line.contains("+-o ") && !line.contains("+-o iPhone@") {
-                if current_is_target {
+            if line.contains("+-o ") {
+                if in_iphone {
                     break;
                 }
+                in_iphone = line.contains("+-o iPhone@");
             }
-
-            if current_is_target {
-                if line.contains("UsbLinkSpeed") {
-                    if let Some((_, val)) = line.split_once('=') {
-                        if let Ok(raw_speed) = val.trim().parse::<u64>() {
-                            link_speed_mbps = (raw_speed / 1_000_000) as u32;
-                        }
-                    }
-                }
-                if line.contains("locationID") {
-                    if let Some((_, val)) = line.split_once('=') {
-                        if let Ok(loc) = val.trim().parse::<u32>() {
-                            let hex_loc = format!("{:08x}", loc);
-                            if hex_loc.starts_with("02") {
-                                port_desc = "O'ng tomon (Right Side) — Thunderbolt 4 / USB-C".into();
-                            } else if hex_loc.starts_with("01") {
-                                port_desc = "Chap tomon (Left Side) — Thunderbolt 4 / USB-C".into();
-                            }
-                        }
+            if in_iphone && line.contains("\"UsbLinkSpeed\"") {
+                if let Some((_, val)) = line.split_once('=') {
+                    if let Ok(bps) = val.trim().parse::<u64>() {
+                        return (bps / 1_000_000) as u32;
                     }
                 }
             }
         }
-
-        (link_speed_mbps, port_desc)
+        0
     }
 
     /// Real Mac model identifier (e.g. "Mac14,6") instead of a hardcoded name
@@ -210,40 +181,15 @@ impl DeviceDetector {
             .unwrap_or_else(|| "Mac".into())
     }
 
-    /// Full cable & port diagnostic for MacBook M1 Pro and connected iPhone
-    pub async fn diagnose_cable(udid: &str) -> crate::device::model::CableDiagnostic {
-        let (link_speed_mbps, port_desc) = Self::fetch_usb_link_speed(udid).await;
-        let port_side = if port_desc.contains("O'ng tomon") {
-            "O'ng tomon (Right Side)"
-        } else {
-            "Chap tomon (Left Side)"
-        };
-
-        let is_throttled = link_speed_mbps <= 480;
-
+    /// Cable check: negotiated link vs. what this iPhone model supports
+    pub async fn diagnose_cable(udid: &str, product_type: &str) -> crate::device::model::CableDiagnostic {
+        let negotiated = Self::fetch_usb_link_speed(udid).await;
+        let device_max_mbps = if supports_usb3(product_type) { 10000 } else { 480 };
         crate::device::model::CableDiagnostic {
-            negotiated_speed_mbps: link_speed_mbps,
-            negotiated_speed_text: if link_speed_mbps >= 1000 {
-                format!("{} Gbps", link_speed_mbps / 1000)
-            } else {
-                format!("{} Mbps", link_speed_mbps)
-            },
-            max_device_speed_mbps: 10000,
-            max_port_speed_mbps: 40000,
-            is_cable_throttled: is_throttled,
-            port_side: port_side.into(),
-            port_name: port_desc,
+            negotiated_speed_mbps: negotiated,
+            device_max_mbps,
+            is_cable_throttled: device_max_mbps > 480 && negotiated > 0 && negotiated <= 480,
             mac_model: Self::mac_model().await,
-            verdict_summary: if is_throttled {
-                "⚠️ Kabel tezligi USB 2.0 (480 Mbps) ga cheklangan".into()
-            } else {
-                "⚡ A'lo darajada! 10 Gbps High-Speed Direct".into()
-            },
-            verdict_details: if is_throttled {
-                "Hozirgi kabel faqat 480 Mbps (USB 2.0) tezlik beryapti — iPhone qutisidagi oddiy kabel shunday. iPhone 15 Pro va undan yangilari USB 3 (10 Gbps) ni qo'llaydi: USB 3.2 yoki Thunderbolt kabel ulasangiz, ko'chirish taxminan 10 barobar tezlashadi.".into()
-            } else {
-                "Kabelingiz USB 3.2 Gen 2 / Thunderbolt yuqori tezligida ulandi. 4K/ProRes videolarni eng maksimal tezlikda eksport qila olasiz.".into()
-            },
         }
     }
 

@@ -1,352 +1,278 @@
-import React, { useState, useEffect } from 'react'
-import { invoke } from '@tauri-apps/api/core'
+import React, { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
-  Zap,
-  Gauge,
-  Laptop,
-  Smartphone,
-  AlertTriangle,
+  Cable,
+  RefreshCw,
   CheckCircle2,
-  Play,
-  RotateCcw,
+  AlertTriangle,
   Info,
-  ArrowRight,
-  ShieldCheck,
-  Cable
-} from 'lucide-react'
-import { ConnectedDevice, CableDiagnostic, CableBenchmarkResult } from '../types'
+} from "lucide-react";
+import {
+  ConnectedDevice,
+  CableDiagnostic,
+  CableBenchmarkResult,
+  MediaCatalogSummary,
+} from "../types";
+import { PageHeader } from "./PageHeader";
+import { CableGuide } from "./CableGuide";
+import { formatBytes } from "../utils/format";
 
 interface CableSpeedViewProps {
-  device: ConnectedDevice | null
-  onOpenFinalCutBridge?: () => void
+  device: ConnectedDevice | null;
+  catalog: MediaCatalogSummary | null;
 }
+
+const linkLabel = (mbps: number) =>
+  mbps >= 10000
+    ? "USB 3 · 10 Gbps"
+    : mbps >= 5000
+      ? "USB 3 · 5 Gbps"
+      : mbps > 0
+        ? `USB 2.0 · ${mbps} Mbps`
+        : "Aniqlanmadi";
+
+const formatDuration = (secs: number) => {
+  if (secs < 60) return `${Math.max(Math.round(secs), 1)} soniya`;
+  const m = Math.round(secs / 60);
+  return m < 60 ? `${m} daqiqa` : `${Math.floor(m / 60)} soat ${m % 60} daqiqa`;
+};
+
+const Row: React.FC<{ label: string; value: React.ReactNode }> = ({
+  label,
+  value,
+}) => (
+  <div className="ws-row !min-h-[36px]">
+    <span className="text-[13px] text-[var(--ws-label-2)]">{label}</span>
+    <span className="text-[13px] tabular-nums text-right">{value}</span>
+  </div>
+);
 
 export const CableSpeedView: React.FC<CableSpeedViewProps> = ({
   device,
-  onOpenFinalCutBridge,
+  catalog,
 }) => {
-  const [diagnostic, setDiagnostic] = useState<CableDiagnostic | null>(null)
-  const [isLoadingDiag, setIsLoadingDiag] = useState(false)
-  const [benchmarkResult, setBenchmarkResult] = useState<CableBenchmarkResult | null>(null)
-  const [isRunningBench, setIsRunningBench] = useState(false)
-  const [benchError, setBenchError] = useState<string | null>(null)
+  const [diag, setDiag] = useState<CableDiagnostic | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [bench, setBench] = useState<CableBenchmarkResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [benchError, setBenchError] = useState<string | null>(null);
 
   const loadDiagnostic = async () => {
-    if (!device) return
-    setIsLoadingDiag(true)
+    if (!device) return;
+    setIsLoading(true);
     try {
-      const data = await invoke<CableDiagnostic>('diagnose_cable_speed', { udid: device.udid })
-      setDiagnostic(data)
+      setDiag(
+        await invoke<CableDiagnostic>("diagnose_cable_speed", {
+          udid: device.udid,
+          productType: device.product_type,
+        }),
+      );
     } catch (e) {
-      console.error('Diagnostic error:', e)
+      console.error("Cable diagnostic error:", e);
     } finally {
-      setIsLoadingDiag(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadDiagnostic()
-  }, [device?.udid])
+    setDiag(null);
+    setBench(null);
+    loadDiagnostic();
+  }, [device?.udid]);
 
-  const handleRunBenchmark = async () => {
-    if (!device || isRunningBench) return
-    setIsRunningBench(true)
-    setBenchError(null)
+  const runBenchmark = async () => {
+    if (!device || isRunning) return;
+    setIsRunning(true);
+    setBenchError(null);
     try {
-      const res = await invoke<CableBenchmarkResult>('run_cable_benchmark', { udid: device.udid })
-      setBenchmarkResult(res)
-    } catch (e: any) {
-      console.error('Benchmark error:', e)
-      setBenchError(typeof e === 'string' ? e : 'Tezlikni o\'lchashda xatolik yuz berdi.')
+      setBench(
+        await invoke<CableBenchmarkResult>("run_cable_benchmark", {
+          udid: device.udid,
+        }),
+      );
+    } catch (e) {
+      setBenchError(typeof e === "string" ? e : "Tezlikni o'lchab bo'lmadi.");
     } finally {
-      setIsRunningBench(false)
+      setIsRunning(false);
     }
-  }
+  };
 
   if (!device) {
     return (
-      <div className="apple-glass rounded-[10px] p-12 text-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mx-auto text-white/40">
-          <Cable className="w-8 h-8" />
+      <>
+        <PageHeader title="Kabel tezligi" />
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-1 pb-16">
+          <Cable
+            className="w-8 h-8 text-[var(--ws-label-3)] mb-2"
+            strokeWidth={1.4}
+          />
+          <p className="text-[13px] font-medium text-white">iPhone ulanmagan</p>
+          <p className="text-[12px] text-[var(--ws-label-2)]">
+            Kabel tezligini bilish uchun telefonni ulang.
+          </p>
         </div>
-        <h3 className="text-base font-semibold text-white">iPhone ulanmagan</h3>
-        <p className="text-xs text-white/50 max-w-sm mx-auto">
-          Kabel va port tezligini o'lchash uchun iPhone'ni USB kabel orqali MacBook'ga ulang.
-        </p>
-      </div>
-    )
+      </>
+    );
   }
 
-  const isThrottled = diagnostic ? diagnostic.is_cable_throttled : true
+  const usb3Phone =
+    (diag?.device_max_mbps ?? device.connection.max_bandwidth_mbps) > 480;
+  const negotiated =
+    diag?.negotiated_speed_mbps ?? device.connection.negotiated_speed_mbps;
+  const throttled =
+    diag?.is_cable_throttled ?? device.connection.is_cable_throttled;
+  const fast = negotiated >= 5000;
+
+  const verdict = fast
+    ? {
+        icon: CheckCircle2,
+        color: "var(--ws-green)",
+        title: "Kabel to'liq tezlikda ishlayapti",
+        text: "Telefon USB 3 tezligida ulangan.",
+      }
+    : throttled
+      ? {
+          icon: AlertTriangle,
+          color: "var(--ws-orange)",
+          title: "Kabel tezlikni cheklayapti",
+          text: `${device.marketing_name} USB 3 (10 Gbps) ni qo'llaydi, lekin bu kabel faqat USB 2.0 beradi. USB 3 yoki Thunderbolt kabel bilan ko'chirish taxminan 10 barobar tezlashadi.`,
+        }
+      : {
+          icon: Info,
+          color: "var(--ws-label-2)",
+          title: "Bu telefon uchun maksimal tezlik",
+          text: `${device.marketing_name} faqat USB 2.0 (480 Mbps) ni qo'llaydi — boshqa kabel tezlikni oshirmaydi.`,
+        };
+  const VerdictIcon = verdict.icon;
+
+  // Real-measured speed beats the theoretical one for time estimates
+  const libraryBytes = catalog?.total_bytes ?? device.storage?.used_bytes ?? 0;
+  const estimateSecs =
+    bench && bench.speed_mb_s > 0
+      ? libraryBytes / (bench.speed_mb_s * 1024 * 1024)
+      : null;
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner Card */}
-      <div className="apple-glass rounded-[10px] p-6 relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5">
-              <span className="p-1.5 rounded-lg bg-[var(--ws-accent)]/15 text-[var(--ws-accent)] border border-[var(--ws-accent)]/25">
-                <Gauge className="w-4 h-4" />
-              </span>
-              <h2 className="text-base font-semibold text-white">Kabel & Port Tezlik Diagnostikasi</h2>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                  isThrottled
-                    ? 'bg-[#F59E0B]/12 text-[#F59E0B] border-[#F59E0B]/25'
-                    : 'bg-[#30D158]/12 text-[#30D158] border-[#30D158]/25'
-                }`}
-              >
-                {isThrottled ? 'USB 2.0 Cheklovi Aniqlangan' : '10 Gbps SuperSpeed Aktiv'}
-              </span>
-            </div>
-            <p className="text-xs text-white/60 max-w-2xl leading-relaxed">
-              MacBook portining jismoniy tezligi, iPhone boshqaruvchisi va ulangan kabelning haqiqiy ma'lumot o'tkazish
-              tezligini tahlil qiling.
-            </p>
-          </div>
-
-          <button
-            onClick={loadDiagnostic}
-            disabled={isLoadingDiag}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-white/80 border border-white/[0.08] transition-all shrink-0"
-          >
-            <RotateCcw className={`w-3.5 h-3.5 ${isLoadingDiag ? 'animate-spin' : ''}`} />
-            <span>Qayta tekshirish</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Hardware Link Capability Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* MacBook Port */}
-        <div className="apple-glass rounded-[10px] p-5 space-y-3">
-          <div className="flex items-center justify-between text-xs text-white/60">
-            <span className="flex items-center gap-1.5 font-medium">
-              <Laptop className="w-4 h-4 text-[var(--ws-accent)]" /> MacBook Porti
-            </span>
-            <span className="text-[10px] text-[#30D158] font-mono font-semibold">Thunderbolt 4</span>
-          </div>
-          <div>
-            <div className="text-sm font-bold text-white">40 Gbps (5,000 MB/s)</div>
-            <div className="text-[11px] text-white/50 mt-0.5">
-              {diagnostic?.port_name || 'O\'ng tomon (Right Side) porti'}
-            </div>
-          </div>
-          <div className="text-[10px] text-white/40 pt-1 border-t border-white/[0.06]">
-            MacBook M1 Pro barcha portlarida USB 3.2 Gen 2 (10 Gbps) va Thunderbolt 4 (40 Gbps) ni to'liq quvvatlaydi.
-          </div>
-        </div>
-
-        {/* Cable Status */}
-        <div
-          className={`apple-glass rounded-[10px] p-5 space-y-3 border ${
-            isThrottled ? 'border-[#F59E0B]/30 bg-[#F59E0B]/[0.02]' : 'border-[#30D158]/30'
-          }`}
+    <>
+      <PageHeader title="Kabel tezligi" subtitle={device.name}>
+        <button
+          className="ws-icon-btn"
+          onClick={loadDiagnostic}
+          disabled={isLoading}
+          title="Qayta tekshirish"
         >
-          <div className="flex items-center justify-between text-xs text-white/60">
-            <span className="flex items-center gap-1.5 font-medium">
-              <Cable className="w-4 h-4 text-[#F59E0B]" /> Ulangan Kabel
-            </span>
-            <span
-              className={`text-[10px] font-mono font-semibold ${
-                isThrottled ? 'text-[#F59E0B]' : 'text-[#30D158]'
-              }`}
-            >
-              {isThrottled ? 'Cheklov mavjud' : 'To\'liq tezlik'}
-            </span>
-          </div>
-          <div>
-            <div className="text-sm font-bold text-white flex items-center gap-2">
-              <span>{diagnostic?.negotiated_speed_text || '480 Mbps'}</span>
-              <span className="text-xs text-white/50 font-normal font-mono">(~35 MB/s)</span>
-            </div>
-            <div className="text-[11px] text-[#F59E0B] font-medium mt-0.5">
-              {isThrottled ? 'USB 2.0 High-Speed' : 'USB 3.2 Gen 2 SuperSpeed'}
-            </div>
-          </div>
-          <div className="text-[10px] text-white/40 pt-1 border-t border-white/[0.06]">
-            {isThrottled
-              ? 'iPhone qutisidagi oq kabel faqat quvvatlash uchun, 480 Mbps bilan cheklangan.'
-              : 'Kabel yuqori tezlikda ishlamoqda.'}
-          </div>
-        </div>
+          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+        </button>
+      </PageHeader>
 
-        {/* iPhone Controller */}
-        <div className="apple-glass rounded-[10px] p-5 space-y-3">
-          <div className="flex items-center justify-between text-xs text-white/60">
-            <span className="flex items-center gap-1.5 font-medium">
-              <Smartphone className="w-4 h-4 text-[#30D158]" /> iPhone 16 Pro Max
-            </span>
-            <span className="text-[10px] text-[#30D158] font-mono font-semibold">USB 3.2 Gen 2</span>
-          </div>
-          <div>
-            <div className="text-sm font-bold text-white">10 Gbps (1,250 MB/s)</div>
-            <div className="text-[11px] text-white/50 mt-0.5">Type-C Native Controller</div>
-          </div>
-          <div className="text-[10px] text-white/40 pt-1 border-t border-white/[0.06]">
-            A18 Pro chipidagi USB 3.2 boshqaruvchisi soniyasiga 1.25 Gigabaytgacha ma'lumot uzatish imkoniga ega.
-          </div>
-        </div>
-      </div>
-
-      {/* MacBook Pro Port Layout Diagram */}
-      <div className="apple-glass rounded-[10px] p-6 space-y-4">
-        <h3 className="text-xs font-semibold text-white/90 flex items-center gap-2">
-          <span>💻 MacBook Pro M1 Pro Portlar Xaritasi</span>
-          <span className="text-[10px] text-white/40 font-normal">(Hozirgi ulanish o'rni ko'rsatilgan)</span>
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Left Side */}
-          <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.06] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white/80">Chap tomon (Left Side)</span>
-              <span className="text-[10px] text-white/40">2 ta Thunderbolt port</span>
-            </div>
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] text-white/60">
-                <span>⚡ Port 1 (Thunderbolt 4 / 40 Gbps)</span>
-                <span className="text-white/30 text-[10px]">Bo'sh</span>
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-[720px] mx-auto px-6 py-6 space-y-6">
+          <div className="ws-group p-4 flex gap-3">
+            <VerdictIcon
+              className="w-5 h-5 shrink-0 mt-0.5"
+              style={{ color: verdict.color }}
+            />
+            <div>
+              <div className="text-[14px] font-semibold text-white">
+                {verdict.title}
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] text-white/60">
-                <span>⚡ Port 2 (Thunderbolt 4 / 40 Gbps)</span>
-                <span className="text-white/30 text-[10px]">Bo'sh</span>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] text-white/40 text-[10px]">
-                <span>MagSafe 3 Quvvatlash Porti</span>
-                <span>Zaryadka</span>
-              </div>
+              <p className="text-[12px] text-[var(--ws-label-2)] mt-1 leading-relaxed">
+                {verdict.text}
+              </p>
             </div>
           </div>
 
-          {/* Right Side */}
-          <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.06] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white/80">O'ng tomon (Right Side)</span>
-              <span className="text-[10px] text-[#30D158] font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#30D158] animate-pulse" />
-                iPhone ulangan tomon
-              </span>
+          <section>
+            <div className="ws-section-title">Ulanish</div>
+            <div className="ws-group">
+              <Row
+                label="Hozirgi ulanish"
+                value={
+                  <span
+                    style={{
+                      color: throttled ? "var(--ws-orange)" : undefined,
+                    }}
+                  >
+                    {linkLabel(negotiated)}
+                  </span>
+                }
+              />
+              <Row
+                label="Telefon qo'llaydigan maksimum"
+                value={usb3Phone ? "USB 3 · 10 Gbps" : "USB 2.0 · 480 Mbps"}
+              />
+              <Row label="Mac" value={diag?.mac_model ?? "—"} />
             </div>
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--ws-accent)]/10 border border-[var(--ws-accent)]/30 text-white">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 text-[var(--ws-accent)]" />
-                  <span className="font-semibold">⚡ Port 3 (Thunderbolt 4)</span>
+          </section>
+
+          <section>
+            <div className="ws-section-title">Haqiqiy tezlik testi</div>
+            <div className="ws-group">
+              <div className="ws-row">
+                <div className="min-w-0">
+                  <div className="text-[13px]">
+                    Telefondan 64 MB o'qib o'lchash
+                  </div>
+                  <div className="text-[11px] text-[var(--ws-label-2)] mt-0.5">
+                    Faqat o'qiladi — telefonga ham, Mac'ga ham hech narsa
+                    yozilmaydi.
+                  </div>
                 </div>
-                <span className="text-[10px] font-mono text-[var(--ws-accent)] font-bold">🟢 iPhone 16 Pro Max</span>
+                <button
+                  className="ws-btn ws-btn-primary shrink-0"
+                  onClick={runBenchmark}
+                  disabled={isRunning}
+                >
+                  {isRunning ? "O'lchanmoqda…" : "O'lchash"}
+                </button>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] text-white/40 text-[10px]">
-                <span>HDMI 2.0 Porti</span>
-                <span>Monitor</span>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] text-white/40 text-[10px]">
-                <span>SDXC Karta Slot</span>
-                <span>Kamera</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Live Benchmark Execution Card */}
-      <div className="apple-glass rounded-[10px] p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Gauge className="w-4 h-4 text-[var(--ws-accent)]" />
-              Haqiqiy Jonli Kabel Tezlik Testi (Benchmark)
-            </h3>
-            <p className="text-xs text-white/60 mt-0.5">
-              Telefondan kichik video faylni real vaqt rejimida xotiraga yuklab, kabelning amaldagi o'tkazuvchanligini
-              (MB/s) hisoblab beradi.
-            </p>
-          </div>
-
-          <button
-            onClick={handleRunBenchmark}
-            disabled={isRunningBench}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-xs transition-all shadow-md shrink-0 ${
-              isRunningBench
-                ? 'bg-white/[0.08] text-white/40 cursor-wait'
-                : 'bg-[var(--ws-accent)] hover:bg-[#0071E3] text-white shadow-[var(--ws-accent)]/25'
-            }`}
-          >
-            {isRunningBench ? (
-              <>
-                <RotateCcw className="w-4 h-4 animate-spin" />
-                <span>O'lchanmoqda...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-current" />
-                <span>Tezlikni o'lchash</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {benchError && (
-          <div className="p-3 rounded-lg bg-[#EF4444]/10 border border-[#EF4444]/30 text-xs text-[#EF4444]">
-            {benchError}
-          </div>
-        )}
-
-        {/* Benchmark Results */}
-        {benchmarkResult && (
-          <div className="p-4 rounded-lg bg-white/[0.03] border border-white/[0.08] space-y-3 animate-fade-in">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
-              <div>
-                <span className="text-[11px] text-white/50 block">O'lchangan haqiqiy tezlik:</span>
-                <div className="text-2xl font-bold font-mono text-white flex items-baseline gap-2">
-                  <span>{benchmarkResult.speed_mb_s} MB/s</span>
-                  <span className="text-xs font-normal text-white/50 font-sans">
-                    ({(benchmarkResult.speed_mb_s * 8).toFixed(0)} Mbps)
+              {bench && (
+                <>
+                  <Row
+                    label="O'lchangan tezlik"
+                    value={
+                      <span className="text-[15px] font-semibold text-white">
+                        {bench.speed_mb_s} MB/s
+                        <span className="text-[12px] font-normal text-[var(--ws-label-2)]">
+                          {" "}
+                          · {bench.transferred_mb} MB / {bench.elapsed_seconds}{" "}
+                          s
+                        </span>
+                      </span>
+                    }
+                  />
+                  {estimateSecs !== null && libraryBytes > 0 && (
+                    <Row
+                      label={`Butun galereya (${formatBytes(libraryBytes)})`}
+                      value={`≈ ${formatDuration(estimateSecs)}`}
+                    />
+                  )}
+                </>
+              )}
+              {benchError && (
+                <div className="ws-row">
+                  <span className="text-[12px] text-[var(--ws-red)]">
+                    {benchError}
                   </span>
                 </div>
-              </div>
-
-              <div className="text-right">
-                <span className="text-[11px] text-white/50 block">Kabel toifasi:</span>
-                <span className="text-xs font-bold text-[#F59E0B] font-mono">
-                  {benchmarkResult.cable_grade}
-                </span>
-              </div>
+              )}
             </div>
+          </section>
 
-            <div className="text-xs text-white/70 leading-relaxed flex items-start gap-2">
-              <Info className="w-4 h-4 text-[var(--ws-accent)] shrink-0 mt-0.5" />
-              <span>{benchmarkResult.verdict}</span>
-            </div>
-          </div>
-        )}
+          <section>
+            <div className="ws-section-title">Qaysi kabel qancha tezlik beradi</div>
+            <CableGuide
+              negotiatedMbps={negotiated}
+              phoneMaxMbps={usb3Phone ? 10000 : 480}
+              libraryBytes={libraryBytes}
+              measuredMBs={bench?.speed_mb_s}
+            />
+            <p className="mt-2 px-1 text-[11px] text-[var(--ws-label-3)]">
+              USB 3 tezliklari taxminiy — amalda telefon xotirasi va Mac'ga bog'liq. Hozirgi kabel uchun «O'lchash» natijasi ishlatiladi.
+            </p>
+          </section>
+        </div>
       </div>
-
-      {/* Advice & Recommendation Card */}
-      <div className="apple-glass rounded-[10px] p-6 space-y-3">
-        <h3 className="text-xs font-semibold text-white flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#30D158]" />
-          Yuqori Tezlikdagi Video & Media Transfer uchun Tavsiya
-        </h3>
-        <p className="text-xs text-white/70 leading-relaxed">
-          Agar siz tez-tez 4K ProRes yoki og'ir videolarni Mac'ga olib montaj qilsangiz, Thunderbolt 4 yoki USB 3.2 Gen
-          2 (10 Gbps) kabel xarid qilishingizni maslahat beramiz. Ushbu kabel bilan 48 GB hajmdagi videolaringiz 20 daqiqa
-          emas, bor-yo'g'i <strong>1 daqiqa 10 soniyada</strong> to'liq kompyuterga o'tadi!
-        </p>
-
-        {onOpenFinalCutBridge && (
-          <div className="pt-2">
-            <button
-              onClick={onOpenFinalCutBridge}
-              className="flex items-center gap-2 text-xs font-medium text-[var(--ws-accent)] hover:underline"
-            >
-              <span>Rasmlar & Videolar Galereyasi oynasiga o'tish</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+    </>
+  );
+};

@@ -30,8 +30,19 @@ async fn export_selected_media(
     udid: String,
     destination_dir: String,
     paths: Vec<String>,
+    keep_albums: bool,
 ) -> Result<usize, String> {
-    FileExporter::export_selected_items(&udid, &destination_dir, paths).await
+    FileExporter::export_selected_items(&udid, &destination_dir, paths, keep_albums).await
+}
+
+/// Which of these (path, size) pairs are not saved on the Mac yet
+#[tauri::command]
+async fn filter_new_files(
+    destination_dir: String,
+    items: Vec<(String, u64)>,
+    keep_albums: bool,
+) -> Result<Vec<String>, String> {
+    Ok(FileExporter::filter_new_files(&destination_dir, items, keep_albums).await)
 }
 
 #[tauri::command]
@@ -48,16 +59,6 @@ async fn fetch_media_thumbnails_batch(
 }
 
 #[tauri::command]
-async fn get_export_stats(udid: String) -> Result<serde_json::Value, String> {
-    let dcim_count = FileExporter::count_dcim_files(&udid).await.unwrap_or(0);
-    let default_dir = FileExporter::default_export_dir();
-    Ok(serde_json::json!({
-        "dcim_count": dcim_count,
-        "default_dir": default_dir,
-    }))
-}
-
-#[tauri::command]
 async fn get_export_progress(destination_dir: String) -> Result<serde_json::Value, String> {
     let progress = FileExporter::get_export_progress(&destination_dir);
     Ok(serde_json::to_value(progress).unwrap_or_default())
@@ -70,13 +71,8 @@ async fn cancel_export() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn export_dcim_to_pc(udid: String, destination_dir: String) -> Result<usize, String> {
-    FileExporter::export_dcim_to_folder(&udid, &destination_dir).await
-}
-
-#[tauri::command]
-async fn diagnose_cable_speed(udid: String) -> Result<serde_json::Value, String> {
-    let diag = DeviceDetector::diagnose_cable(&udid).await;
+async fn diagnose_cable_speed(udid: String, product_type: String) -> Result<serde_json::Value, String> {
+    let diag = DeviceDetector::diagnose_cable(&udid, &product_type).await;
     Ok(serde_json::to_value(diag).map_err(|e| e.to_string())?)
 }
 
@@ -186,11 +182,10 @@ pub fn run() {
             refresh_device,
             check_system_status,
             get_default_export_dir,
-            get_export_stats,
             get_export_progress,
             fetch_media_catalog,
+            filter_new_files,
             export_selected_media,
-            export_dcim_to_pc,
             open_folder_in_finder,
             diagnose_cable_speed,
             run_cable_benchmark,

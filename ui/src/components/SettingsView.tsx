@@ -121,6 +121,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onChange={(v) => onUpdate("openFinderAfterExport", v)}
               />
             </SettingRow>
+          <SettingRow
+              title="Faqat yangi fayllar"
+              hint="Mac'da shu nom va hajmda bor fayllar qayta ko'chirilmaydi"
+            >
+              <Switch
+                label="Faqat yangi fayllar"
+                checked={settings.skipExisting}
+                onChange={(v) => onUpdate("skipExisting", v)}
+              />
+            </SettingRow>
           </Section>
 
           <Section title="Galereya">

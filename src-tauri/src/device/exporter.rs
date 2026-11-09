@@ -153,31 +153,7 @@ impl FileExporter {
         Ok(albums)
     }
 
-    /// Count total photos and videos inside DCIM
-    pub async fn count_dcim_files(udid: &str) -> Result<usize, String> {
-        let albums = Self::list_dcim_albums(udid).await?;
-        let mut total = 0;
-        for album in albums {
-            let path = format!("/DCIM/{}", album);
-            if let Ok(out) = Bridge::tokio_cmd("afcclient")
-                .arg("-u")
-                .arg(udid)
-                .arg("list")
-                .arg(&path)
-                .output()
-                .await
-            {
-                let count = String::from_utf8_lossy(&out.stdout)
-                    .lines()
-                    .filter(|l| !l.trim().is_empty())
-                    .count();
-                total += count;
-            }
-        }
-        Ok(total)
-    }
-
-    /// Fetch full interactive media catalog across DCIM, Recordings, and Downloads
+    /// Fetch the media catalog across DCIM albums and legacy /Recordings
     pub async fn fetch_media_catalog(udid: &str) -> Result<MediaCatalogSummary, String> {
         let albums = Self::list_dcim_albums(udid).await?;
 
@@ -187,7 +163,6 @@ impl FileExporter {
             batch_script.push_str(&format!("ALBUM_MARKER_{}\nls -l /DCIM/{}\n", album, album));
         }
         batch_script.push_str("ALBUM_MARKER_Recordings\nls -l /Recordings\n");
-        batch_script.push_str("ALBUM_MARKER_Downloads\nls -l /Downloads\n");
         batch_script.push_str("exit\n");
 
         let mut child = Bridge::tokio_cmd("afcclient")
@@ -264,8 +239,6 @@ impl FileExporter {
 
                     let path = if current_album == "Recordings" {
                         format!("/Recordings/{}", name)
-                    } else if current_album == "Downloads" {
-                        format!("/Downloads/{}", name)
                     } else {
                         format!("/DCIM/{}/{}", current_album, name)
                     };
@@ -315,11 +288,40 @@ impl FileExporter {
         })
     }
 
+    /// Where a device file lands on the Mac: dest/<file> or dest/<album>/<file>
+    fn local_target(dest: &Path, device_path: &str, keep_albums: bool) -> PathBuf {
+        let p = Path::new(device_path);
+        let file = p.file_name().unwrap_or_default();
+        match p.parent().and_then(|a| a.file_name()) {
+            Some(album) if keep_albums => dest.join(album).join(file),
+            _ => dest.join(file),
+        }
+    }
+
+    /// Drop files that already exist on the Mac with the same size (re-runs copy only new files)
+    pub async fn filter_new_files(
+        destination_dir: &str,
+        items: Vec<(String, u64)>,
+        keep_albums: bool,
+    ) -> Vec<String> {
+        let dest = Self::resolve_path(destination_dir);
+        let mut fresh = Vec::new();
+        for (path, size) in items {
+            let local = Self::local_target(&dest, &path, keep_albums);
+            let same = tokio::fs::metadata(&local).await.map(|m| m.len() == size).unwrap_or(false);
+            if !same {
+                fresh.push(path);
+            }
+        }
+        fresh
+    }
+
     /// Export specifically selected files directly to local destination
     pub async fn export_selected_items(
         udid: &str,
         destination_dir: &str,
         paths: Vec<String>,
+        keep_albums: bool,
     ) -> Result<usize, String> {
         Self::reset_cancel();
         if Self::is_cancelled() {
@@ -337,8 +339,10 @@ impl FileExporter {
         // Build single batch script with all `get "<remote>" "<local>"` commands
         let mut script = String::new();
         for path in &paths {
-            let filename = Path::new(path).file_name().unwrap_or_default().to_string_lossy();
-            let local_dest = dest.join(filename.as_ref());
+            let local_dest = Self::local_target(&dest, path, keep_albums);
+            if let Some(parent) = local_dest.parent() {
+                let _ = tokio::fs::create_dir_all(parent).await;
+            }
             script.push_str(&format!("get \"{}\" \"{}\"\n", path, local_dest.display()));
         }
         script.push_str("exit\n");
@@ -369,139 +373,49 @@ impl FileExporter {
         Ok(paths.len())
     }
 
-    /// Export DCIM camera roll to a local directory on Mac/PC
-    pub async fn export_dcim_to_folder(udid: &str, destination_dir: &str) -> Result<usize, String> {
-        Self::reset_cancel();
-        let dest = Self::resolve_path(destination_dir);
-        tokio::fs::create_dir_all(&dest)
-            .await
-            .map_err(|e| format!("Papka yaratib bo'lmadi ({}): {}", dest.display(), e))?;
-
-        let albums = Self::list_dcim_albums(udid).await?;
-        let mut copied_albums = 0;
-
-        for album in albums {
-            if Self::is_cancelled() {
-                return Err("Eksport bekor qilindi".into());
-            }
-
-            let remote_path = format!("/DCIM/{}", album);
-            let local_album_path = dest.join(&album);
-            let _ = tokio::fs::create_dir_all(&local_album_path).await;
-
-            let script = format!("get -rf \"{}\" \"{}\"\nexit\n", remote_path, dest.display());
-
-            let mut child = Bridge::tokio_cmd("afcclient")
-                .kill_on_drop(true)
-                .arg("-u")
-                .arg(udid)
-                .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()
-                .map_err(|e| format!("afcclient ishga tushmadi: {}", e))?;
-
-            if let Some(mut stdin) = child.stdin.take() {
-                let _ = stdin.write_all(script.as_bytes()).await;
-                let _ = stdin.flush().await;
-                drop(stdin);
-            }
-
-            let output = child.wait_with_output().await.map_err(|e| e.to_string())?;
-            if output.status.success() {
-                copied_albums += 1;
-            }
-        }
-
-        Ok(copied_albums)
-    }
-
-    /// Real-world benchmark: download a small candidate file into a temp file and compute MB/s
+    /// Cable benchmark: read up to 64 MB of the largest recent video straight
+    /// from the phone (in memory, no temp file) and time it.
     pub async fn run_cable_speed_test(udid: &str) -> Result<crate::device::model::CableBenchmarkResult, String> {
-        let albums = Self::list_dcim_albums(udid).await?;
-        let mut candidate_file: Option<String> = None;
+        const SAMPLE: u64 = 64 * 1024 * 1024;
+        const CHUNK: u64 = 4 * 1024 * 1024;
 
-        for album in albums {
-            let out = Bridge::tokio_cmd("afcclient")
-                .arg("-u")
-                .arg(udid)
-                .arg("ls")
-                .arg(format!("DCIM/{}", album))
-                .output()
-                .await
-                .ok();
+        let catalog = Self::fetch_media_catalog(udid).await?;
+        let sample = catalog
+            .items
+            .iter()
+            .filter(|i| i.size_bytes >= 8 * 1024 * 1024)
+            .max_by_key(|i| i.size_bytes.min(SAMPLE))
+            .cloned()
+            .ok_or_else(|| "Test uchun telefonda kamida 8 MB li fayl topilmadi.".to_string())?;
 
-            if let Some(o) = out {
-                let text = String::from_utf8_lossy(&o.stdout);
-                for line in text.lines() {
-                    let file = line.trim();
-                    if file.ends_with(".MOV") || file.ends_with(".MP4") || file.ends_with(".HEIC") {
-                        candidate_file = Some(format!("DCIM/{}/{}", album, file));
-                        break;
-                    }
+        let id = udid.to_string();
+        let path = sample.path.clone();
+        let total = sample.size_bytes.min(SAMPLE);
+        let (read, elapsed) = tokio::task::spawn_blocking(move || -> Result<(u64, f64), String> {
+            // warm up the AFC connection so the handshake is not timed
+            crate::device::native::read_range(&id, &path, 0, 64 * 1024)?;
+            let start = std::time::Instant::now();
+            let mut offset = 0u64;
+            while offset < total {
+                let len = CHUNK.min(total - offset) as u32;
+                let got = crate::device::native::read_range(&id, &path, offset, len)?.len() as u64;
+                if got == 0 {
+                    break;
                 }
+                offset += got;
             }
-            if candidate_file.is_some() {
-                break;
-            }
-        }
+            Ok((offset, start.elapsed().as_secs_f64()))
+        })
+        .await
+        .map_err(|e| e.to_string())??;
 
-        let remote_path = candidate_file.ok_or_else(|| "Test qilish uchun telefondan birorta media fayl topilmadi.".to_string())?;
-
-        let temp_dir = std::env::temp_dir();
-        let temp_file = temp_dir.join("wireshift_cable_test.bin");
-
-        let start = std::time::Instant::now();
-        let status = Bridge::tokio_cmd("afcclient")
-            .arg("-u")
-            .arg(udid)
-            .arg("get")
-            .arg(&remote_path)
-            .arg(temp_file.to_str().unwrap_or("/tmp/wireshift_cable_test.bin"))
-            .status()
-            .await
-            .map_err(|e| format!("Speed test xatoligi: {}", e))?;
-
-        let elapsed = start.elapsed().as_secs_f64();
-
-        if !status.success() {
-            let _ = tokio::fs::remove_file(&temp_file).await;
-            return Err("Kabel orqali faylni o'qishda xatolik yuz berdi.".into());
-        }
-
-        let file_size_bytes = tokio::fs::metadata(&temp_file)
-            .await
-            .map(|m| m.len())
-            .unwrap_or(0);
-
-        let _ = tokio::fs::remove_file(&temp_file).await;
-
-        let transferred_mb = file_size_bytes as f64 / (1024.0 * 1024.0);
-        let speed_mb_s = if elapsed > 0.05 { transferred_mb / elapsed } else { 0.0 };
-
-        let (cable_grade, verdict) = if speed_mb_s < 45.0 {
-            (
-                "USB 2.0 (480 Mbps — Zaryad kabeli)".to_string(),
-                "Haqiqiy tezlik ~30-35 MB/s. Bu kabel faqat USB 2.0 liniyalariga ega (Apple in-box oq kabeli). 10 Gbps kabel ulasangiz, 300+ MB/s ga chiqadi.".to_string(),
-            )
-        } else if speed_mb_s < 120.0 {
-            (
-                "USB 3.0 / 3.1 Gen 1 (5 Gbps)".to_string(),
-                "Yaxshi tezlik! Kabel 5 Gbps tezlikda ishlamoqda.".to_string(),
-            )
-        } else {
-            (
-                "USB 3.2 Gen 2 / Thunderbolt 4 (10-40 Gbps)".to_string(),
-                "Maksimal tezlik! Kabel 10 Gbps to'liq o'tkazuvchanlikka ega. Og'ir 4K/ProRes videolarni eng yuqori tezlikda o'tkazish uchun ideal!".to_string(),
-            )
-        };
-
+        let mb = read as f64 / (1024.0 * 1024.0);
+        let speed = if elapsed > 0.01 { mb / elapsed } else { 0.0 };
         Ok(crate::device::model::CableBenchmarkResult {
-            speed_mb_s: (speed_mb_s * 10.0).round() / 10.0,
-            transferred_mb: (transferred_mb * 10.0).round() / 10.0,
+            speed_mb_s: (speed * 10.0).round() / 10.0,
+            transferred_mb: (mb * 10.0).round() / 10.0,
             elapsed_seconds: (elapsed * 100.0).round() / 100.0,
-            cable_grade,
-            verdict,
+            sample_file: sample.name,
         })
     }
 
@@ -816,18 +730,30 @@ mod tests {
         }
     }
 
+    // Real phone needed: WS_OUT=/some/tmp/dir cargo test --lib real_device -- --ignored --nocapture
     #[tokio::test]
-    async fn test_export_video() {
+    #[ignore]
+    async fn real_device_export_and_benchmark() {
         crate::device::Bridge::init_environment();
-        let udids = crate::device::DeviceDetector::list_udids().await.unwrap_or_default();
-        if let Some(udid) = udids.first() {
-            let res = FileExporter::export_selected_items(
-                udid,
-                "~/Pictures/WireShift_Exports",
-                vec!["/DCIM/104APPLE/IMG_4201.MOV".to_string()],
-            ).await;
-            println!("Export with tilde result: {:?}", res);
-            assert!(res.is_ok());
+        let udid = crate::device::DeviceDetector::list_udids().await.unwrap().remove(0);
+        let out = std::env::var("WS_OUT").expect("WS_OUT");
+
+        let catalog = FileExporter::fetch_media_catalog(&udid).await.unwrap();
+        assert!(!catalog.items.iter().any(|i| i.path.starts_with("/Downloads")));
+        let small: Vec<_> = catalog.items.iter().filter(|i| i.kind == "photo").take(2).cloned().collect();
+        let pairs: Vec<_> = small.iter().map(|i| (i.path.clone(), i.size_bytes)).collect();
+
+        let todo = FileExporter::filter_new_files(&out, pairs.clone(), true).await;
+        assert_eq!(todo.len(), 2);
+        FileExporter::export_selected_items(&udid, &out, todo, true).await.unwrap();
+        for i in &small {
+            let local = std::path::Path::new(&out).join(&i.album).join(&i.name);
+            assert_eq!(std::fs::metadata(&local).unwrap().len(), i.size_bytes, "{}", local.display());
         }
+        assert!(FileExporter::filter_new_files(&out, pairs, true).await.is_empty());
+
+        let bench = FileExporter::run_cable_speed_test(&udid).await.unwrap();
+        println!("bench: {:?}", bench);
+        assert!(bench.speed_mb_s > 1.0);
     }
 }

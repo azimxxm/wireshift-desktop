@@ -5,6 +5,8 @@ export interface AppSettings {
   /** Save the matching .AAE edit file together with a selected photo */
   includeSidecars: boolean
   openFinderAfterExport: boolean
+  /** Skip files already saved on the Mac with the same size */
+  skipExisting: boolean
   thumbSize: number
 }
 
@@ -14,6 +16,7 @@ const DEFAULTS: AppSettings = {
   exportPath: '',
   includeSidecars: true,
   openFinderAfterExport: false,
+  skipExisting: true,
   thumbSize: 168,
 }
 

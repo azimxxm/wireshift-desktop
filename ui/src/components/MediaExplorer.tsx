@@ -24,6 +24,7 @@ import { MediaCatalogSummary, MediaItem } from "../types";
 import { PageHeader } from "./PageHeader";
 import { QuickLook } from "./QuickLook";
 import { formatBytes, formatShortDate } from "../utils/format";
+import type { ExportResult } from "../App";
 
 type FilterTab = "video" | "photo" | "other" | "all";
 type SortKey = "newest" | "oldest" | "size-desc" | "name";
@@ -37,11 +38,10 @@ interface MediaExplorerProps {
   onExportSelected: (paths: string[]) => Promise<void>;
   isExporting: boolean;
   exportProgress: number;
-  isExportSuccess: boolean;
+  exportResult: ExportResult | null;
   onOpenFolder: () => void;
   onCancelExport?: () => void;
   udid?: string;
-  includeSidecars: boolean;
   thumbSize: number;
   onThumbSizeChange: (size: number) => void;
 }
@@ -54,8 +54,6 @@ const extractNum = (s: string) => {
   return digits ? parseInt(digits, 10) : 0;
 };
 
-const stemOf = (name: string) => name.replace(/\.[^.]+$/, "").toUpperCase();
-const sidecarKey = (album: string, name: string) => `${album}/${stemOf(name)}`;
 
 const sorters: Record<SortKey, (a: MediaItem, b: MediaItem) => number> = {
   // Newest first: highest album number (107 > 106), then highest file number
@@ -103,11 +101,10 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
   onExportSelected,
   isExporting,
   exportProgress,
-  isExportSuccess,
+  exportResult,
   onOpenFolder,
   onCancelExport,
   udid,
-  includeSidecars,
   thumbSize,
   onThumbSizeChange,
 }) => {
@@ -125,15 +122,6 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
   const searchRef = useRef<HTMLInputElement>(null);
   const requestedThumbs = useRef<Set<string>>(new Set());
 
-  // Photos edit sidecars (IMG_1234.AAE) grouped by album + file stem
-  const sidecars = useMemo(() => {
-    const map = new Map<string, MediaItem>();
-    catalog?.items.forEach((i) => {
-      if (i.kind === "sidecar") map.set(sidecarKey(i.album, i.name), i);
-    });
-    return map;
-  }, [catalog]);
-
   const counts = useMemo(() => {
     const c = {
       video: 0,
@@ -150,7 +138,7 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
       } else if (i.kind === "photo") {
         c.photo++;
         c.photoBytes += i.size_bytes;
-      } else c.other++;
+      } else if (i.kind !== "sidecar") c.other++;
       if (i.kind !== "sidecar") c.all++;
     });
     return c;
@@ -167,8 +155,8 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
         (item.kind === "video" || item.kind === "photo")
       )
         return false;
-      // AAE sidecars only make sense next to "Other"; they travel with their photo on export
-      if (activeTab === "all" && item.kind === "sidecar") return false;
+      // AAE edit files are never shown; they are saved together with their photo
+      if (item.kind === "sidecar") return false;
       if (!query) return true;
       return (
         item.name.toLowerCase().includes(query) ||
@@ -250,10 +238,10 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
   // Clear the selection once an export finished successfully
   const wasExporting = useRef(false);
   useEffect(() => {
-    if (wasExporting.current && !isExporting && isExportSuccess)
+    if (wasExporting.current && !isExporting && exportResult)
       setSelectedPaths(new Set());
     wasExporting.current = isExporting;
-  }, [isExporting, isExportSuccess]);
+  }, [isExporting, exportResult]);
 
   const handleItemClick = useCallback(
     (index: number, e: React.MouseEvent) => {
@@ -293,18 +281,10 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
       return next;
     });
 
+  // AAE edit files are added by the app when the setting is on
   const handleStartExport = () => {
-    if (selectedPaths.size === 0 || isExporting || !catalog) return;
-    const paths = new Set(selectedPaths);
-    if (includeSidecars) {
-      catalog.items.forEach((i) => {
-        if (selectedPaths.has(i.path) && i.kind === "photo") {
-          const aae = sidecars.get(sidecarKey(i.album, i.name));
-          if (aae) paths.add(aae.path);
-        }
-      });
-    }
-    onExportSelected(Array.from(paths));
+    if (selectedPaths.size === 0 || isExporting) return;
+    onExportSelected(Array.from(selectedPaths));
   };
 
   // Keyboard: ⌘A select all, Esc clear, Space preview, ⌘F search
@@ -342,7 +322,10 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
     { id: "all", label: "Barchasi", count: counts.all },
     { id: "video", label: "Videolar", count: counts.video },
     { id: "photo", label: "Rasmlar", count: counts.photo },
-    { id: "other", label: "Boshqa", count: counts.other },
+    // only when the phone really has non-media files (e.g. old voice memos)
+    ...(counts.other > 0
+      ? [{ id: "other" as FilterTab, label: "Boshqa", count: counts.other }]
+      : []),
   ];
 
   return (
@@ -462,9 +445,12 @@ export const MediaExplorer: React.FC<MediaExplorerProps> = ({
             </>
           ) : (
             <>
-              {isExportSuccess && (
+              {exportResult && (
                 <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--ws-green)]">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Saqlandi
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {exportResult.copied > 0
+                    ? `${exportResult.copied} ta saqlandi`
+                    : "Hammasi oldin saqlangan"}
                   <button className="ws-link" onClick={onOpenFolder}>
                     Ko'rsatish
                   </button>

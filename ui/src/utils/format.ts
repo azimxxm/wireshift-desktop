@@ -29,3 +29,6 @@ export const formatShortDate = (raw: string): string => {
   if (month && day) return `${parseInt(day, 10)}-${MONTHS[month]}`
   return parts.slice(0, 2).join(' ')
 }
+
+/** "107APPLE/IMG_7214" — pairs a photo with its .AAE edit file */
+export const sidecarKey = (album: string, name: string) => `${album}/${name.replace(/\.[^.]+$/, '').toUpperCase()}`

@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Smartphone,
-  Laptop,
   FolderOpen,
   ChevronRight,
   Check,
@@ -10,52 +9,41 @@ import {
   ShieldAlert,
   BatteryCharging,
   Battery,
-  Images,
-  Users,
-  FileText,
   Cable,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { ConnectedDevice, MediaCatalogSummary } from "../types";
+import type { ExportResult } from "../App";
 import { PageHeader } from "./PageHeader";
 import { formatBytes } from "../utils/format";
 
-type Category = "photos" | "contacts" | "files";
+export type ExportScope = "all" | "video" | "photo";
 
 interface TransferViewProps {
-  sourceDevice: ConnectedDevice | null;
-  targetDevice: ConnectedDevice | null;
+  device: ConnectedDevice | null;
   devices: ConnectedDevice[];
-  onSelectSource: (udid: string) => void;
-  onSelectTarget: (udid: string) => void;
-  targetMode: "phone" | "pc";
-  onToggleTargetMode: (mode: "phone" | "pc") => void;
+  onSelectDevice: (udid: string) => void;
   exportPath: string;
   onPickExportPath: () => void;
   onOpenFolder: () => void;
-  selectedCategories: Record<Category, boolean>;
-  onToggleCategory: (cat: Category) => void;
-  dcimCount: number;
   catalog: MediaCatalogSummary | null;
-  onStart: () => void;
+  isCatalogLoading: boolean;
+  skipExisting: boolean;
+  onSkipExistingChange: (v: boolean) => void;
+  onStart: (scope: ExportScope) => void;
   onCancel: () => void;
-  isMigrating: boolean;
-  isExportSuccess: boolean;
+  isExporting: boolean;
+  exportResult: ExportResult | null;
   progress: number;
   speedText: string;
   etaText: string;
   copiedCount: number;
+  totalCount: number;
   copiedBytes: number;
-  currentAlbum: string;
   onOpenGallery: () => void;
   onOpenCableSpeed: () => void;
 }
-
-const Checkbox: React.FC<{ checked: boolean }> = ({ checked }) => (
-  <span className="ws-checkbox" data-checked={checked}>
-    {checked && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
-  </span>
-);
 
 const DeviceSummary: React.FC<{
   device: ConnectedDevice;
@@ -80,25 +68,23 @@ const DeviceSummary: React.FC<{
           />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {devices.length > 1 ? (
-              <select
-                value={device.udid}
-                onChange={(e) => onSelect(e.target.value)}
-                className="ws-field text-[14px] font-semibold"
-              >
-                {devices.map((d) => (
-                  <option key={d.udid} value={d.udid}>
-                    {d.name || d.marketing_name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <h2 className="text-[15px] font-semibold text-white truncate">
-                {device.name || device.marketing_name}
-              </h2>
-            )}
-          </div>
+          {devices.length > 1 ? (
+            <select
+              value={device.udid}
+              onChange={(e) => onSelect(e.target.value)}
+              className="ws-field text-[14px] font-semibold"
+            >
+              {devices.map((d) => (
+                <option key={d.udid} value={d.udid}>
+                  {d.name || d.marketing_name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <h2 className="text-[15px] font-semibold text-white truncate">
+              {device.name || device.marketing_name}
+            </h2>
+          )}
           <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-[var(--ws-label-2)]">
             <span>{device.marketing_name}</span>
             <span className="text-[var(--ws-label-3)]">·</span>
@@ -129,7 +115,7 @@ const DeviceSummary: React.FC<{
 
         <button
           onClick={onOpenCableSpeed}
-          title="Kabel tezligini tekshirish"
+          title="Kabel tezligi"
           className={`shrink-0 inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[11px] font-medium ${
             device.connection.is_cable_throttled
               ? "bg-[var(--ws-orange)]/15 text-[var(--ws-orange)]"
@@ -152,7 +138,7 @@ const DeviceSummary: React.FC<{
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-[1fr_auto] gap-x-6 gap-y-1 items-center">
+      <div className="mt-4 grid grid-cols-[1fr_auto] gap-x-6 items-end">
         <div>
           <div className="flex justify-between text-[12px] mb-1.5">
             <span className="text-[var(--ws-label-2)]">Xotira</span>
@@ -166,7 +152,7 @@ const DeviceSummary: React.FC<{
             <div style={{ width: `${usedPct}%` }} />
           </div>
         </div>
-        <div className="flex items-center gap-1.5 text-[12px] text-[var(--ws-label-2)] tabular-nums self-end">
+        <div className="flex items-center gap-1.5 text-[12px] text-[var(--ws-label-2)] tabular-nums">
           <BatteryIcon
             className={`w-4 h-4 ${device.battery?.is_charging ? "text-[var(--ws-green)]" : ""}`}
           />
@@ -177,78 +163,72 @@ const DeviceSummary: React.FC<{
   );
 };
 
+const Radio: React.FC<{ checked: boolean }> = ({ checked }) => (
+  <span
+    className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
+      checked
+        ? "bg-[var(--ws-accent)]"
+        : "border border-white/30 bg-white/[0.06]"
+    }`}
+  >
+    {checked && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+  </span>
+);
+
 export const TransferView: React.FC<TransferViewProps> = (p) => {
-  const [migrationType, setMigrationType] = useState<"full" | "selective">(
-    "selective",
-  );
-  const isPcMode = p.targetMode === "pc";
-  const hasSource = !!p.sourceDevice;
-  const anyCategory =
-    p.selectedCategories.photos ||
-    p.selectedCategories.contacts ||
-    p.selectedCategories.files;
-  const canStart = isPcMode
-    ? hasSource && !p.isMigrating && anyCategory
-    : hasSource && !!p.targetDevice && !p.isMigrating;
+  const [scope, setScope] = useState<ExportScope>("all");
 
-  const mediaSubtitle = p.catalog
-    ? `${p.catalog.photo_count + p.catalog.video_count} ta · ${formatBytes(p.catalog.photo_bytes + p.catalog.video_bytes)}`
-    : p.dcimCount > 0
-      ? `${p.dcimCount} ta fayl`
-      : "Barcha albomlar";
+  const stats = useMemo(() => {
+    const s = {
+      all: { n: 0, b: 0 },
+      video: { n: 0, b: 0 },
+      photo: { n: 0, b: 0 },
+    };
+    p.catalog?.items.forEach((i) => {
+      if (i.kind === "sidecar") return;
+      s.all.n++;
+      s.all.b += i.size_bytes;
+      if (i.kind === "video" || i.kind === "photo") {
+        s[i.kind].n++;
+        s[i.kind].b += i.size_bytes;
+      }
+    });
+    return s;
+  }, [p.catalog]);
 
-  const categories: {
-    id: Category;
-    icon: React.ElementType;
-    label: string;
-    hint: string;
-  }[] = [
-    {
-      id: "photos",
-      icon: Images,
-      label: "Rasmlar va videolar",
-      hint: mediaSubtitle,
-    },
-    { id: "contacts", icon: Users, label: "Kontaktlar", hint: "vCard (.vcf)" },
-    {
-      id: "files",
-      icon: FileText,
-      label: "Boshqa fayllar",
-      hint: "Yozuvlar, yuklamalar",
-    },
+  const options: { id: ExportScope; label: string }[] = [
+    { id: "all", label: "Hamma rasm va videolar" },
+    { id: "video", label: "Faqat videolar" },
+    { id: "photo", label: "Faqat rasmlar" },
   ];
+
+  const canStart =
+    !!p.device?.is_trusted &&
+    !!p.catalog &&
+    !p.isExporting &&
+    stats[scope].n > 0;
+
+  const status = (() => {
+    if (!p.device) return "Davom etish uchun iPhone ulang.";
+    if (!p.device.is_trusted) return "Telefonda «Ishonish»ni bosing.";
+    if (p.isCatalogLoading && !p.catalog) return "Telefon xotirasi o'qilmoqda…";
+    if (p.skipExisting) return "Mac'da bor fayllar qayta ko'chirilmaydi.";
+    return "Albomlar bo'yicha papkalarga, asl sifatda saqlanadi.";
+  })();
 
   return (
     <>
-      <PageHeader title="Eksport">
-        <div className="ws-segmented" data-no-drag>
-          <button
-            aria-pressed={isPcMode}
-            disabled={p.isMigrating}
-            onClick={() => p.onToggleTargetMode("pc")}
-          >
-            <Laptop className="w-3.5 h-3.5" /> Mac'ga
-          </button>
-          <button
-            aria-pressed={!isPcMode}
-            disabled={p.isMigrating}
-            onClick={() => p.onToggleTargetMode("phone")}
-          >
-            <Smartphone className="w-3.5 h-3.5" /> Boshqa iPhone'ga
-          </button>
-        </div>
-      </PageHeader>
+      <PageHeader title="Eksport" />
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-[720px] mx-auto px-6 py-6 space-y-6">
-          {/* Source */}
           <section>
             <div className="ws-section-title">Manba</div>
-            {p.sourceDevice ? (
+            {p.device ? (
               <DeviceSummary
-                device={p.sourceDevice}
+                device={p.device}
                 devices={p.devices}
-                onSelect={p.onSelectSource}
+                onSelect={p.onSelectDevice}
                 onOpenCableSpeed={p.onOpenCableSpeed}
               />
             ) : (
@@ -268,150 +248,108 @@ export const TransferView: React.FC<TransferViewProps> = (p) => {
             )}
           </section>
 
-          {/* Destination */}
           <section>
-            <div className="ws-section-title">Manzil</div>
-            {isPcMode ? (
-              <div className="ws-group">
-                <div className="ws-row">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FolderOpen className="w-4 h-4 text-[var(--ws-accent)] shrink-0" />
-                    <span
-                      className="selectable text-[13px] truncate"
-                      title={p.exportPath}
-                    >
-                      {p.exportPath || "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      className="ws-btn"
-                      onClick={p.onPickExportPath}
-                      disabled={p.isMigrating}
-                    >
-                      O'zgartirish…
-                    </button>
-                    <button className="ws-btn" onClick={p.onOpenFolder}>
-                      Finder'da ochish
-                    </button>
-                  </div>
+            <div className="ws-section-title">Saqlash joyi</div>
+            <div className="ws-group">
+              <div className="ws-row">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FolderOpen className="w-4 h-4 text-[var(--ws-accent)] shrink-0" />
+                  <span
+                    className="selectable text-[13px] truncate"
+                    title={p.exportPath}
+                  >
+                    {p.exportPath || "—"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    className="ws-btn"
+                    onClick={p.onPickExportPath}
+                    disabled={p.isExporting}
+                  >
+                    O'zgartirish…
+                  </button>
+                  <button className="ws-btn" onClick={p.onOpenFolder}>
+                    Finder'da ochish
+                  </button>
                 </div>
               </div>
-            ) : (
-              <div className="ws-group">
-                <div className="ws-row">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Smartphone className="w-4 h-4 text-[var(--ws-label-2)] shrink-0" />
-                    {p.targetDevice ? (
-                      p.devices.filter((d) => d.udid !== p.sourceDevice?.udid)
-                        .length > 1 ? (
-                        <select
-                          value={p.targetDevice.udid}
-                          onChange={(e) => p.onSelectTarget(e.target.value)}
-                          className="ws-field"
-                        >
-                          {p.devices
-                            .filter((d) => d.udid !== p.sourceDevice?.udid)
-                            .map((d) => (
-                              <option key={d.udid} value={d.udid}>
-                                {d.name || d.marketing_name}
-                              </option>
-                            ))}
-                        </select>
-                      ) : (
-                        <span>
-                          {p.targetDevice.name || p.targetDevice.marketing_name}
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-[var(--ws-label-2)]">
-                        Ikkinchi iPhone'ni ulang
-                      </span>
-                    )}
-                  </div>
-                  <div className="ws-segmented shrink-0">
-                    <button
-                      aria-pressed={migrationType === "selective"}
-                      onClick={() => setMigrationType("selective")}
-                    >
-                      Rasm va kontakt
-                    </button>
-                    <button
-                      aria-pressed={migrationType === "full"}
-                      onClick={() => setMigrationType("full")}
-                    >
-                      To'liq
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </section>
 
-          {/* What to copy */}
-          {isPcMode && (
-            <section>
-              <div className="ws-section-title">Nimalarni ko'chirish</div>
-              <div className="ws-group">
-                {categories.map((c) => {
-                  const checked = p.selectedCategories[c.id];
-                  const Icon = c.icon;
-                  return (
-                    <button
-                      key={c.id}
-                      disabled={p.isMigrating}
-                      onClick={() => p.onToggleCategory(c.id)}
-                      className="ws-row w-full text-left hover:bg-white/[0.03] first:rounded-t-[10px] last:rounded-b-[10px]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox checked={checked} />
-                        <Icon
-                          className="w-4 h-4 text-[var(--ws-label-2)]"
-                          strokeWidth={1.7}
-                        />
-                        <span className="text-[13px]">{c.label}</span>
-                      </div>
-                      <span className="text-[12px] text-[var(--ws-label-2)] tabular-nums">
-                        {c.hint}
-                      </span>
-                    </button>
-                  );
-                })}
+          <section>
+            <div className="ws-section-title">Nimalarni ko'chirish</div>
+            <div className="ws-group">
+              {options.map((o) => (
                 <button
-                  onClick={p.onOpenGallery}
-                  className="ws-row w-full text-left hover:bg-white/[0.03] rounded-b-[10px]"
+                  key={o.id}
+                  disabled={p.isExporting}
+                  onClick={() => setScope(o.id)}
+                  className="ws-row w-full text-left hover:bg-white/[0.03] first:rounded-t-[10px]"
                 >
-                  <span className="text-[13px] text-[var(--ws-accent)]">
-                    Faqat kerakli rasm va videolarni tanlash…
+                  <div className="flex items-center gap-3">
+                    <Radio checked={scope === o.id} />
+                    <span className="text-[13px]">{o.label}</span>
+                  </div>
+                  <span className="text-[12px] text-[var(--ws-label-2)] tabular-nums">
+                    {p.catalog ? (
+                      `${stats[o.id].n} ta · ${formatBytes(stats[o.id].b)}`
+                    ) : p.isCatalogLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      "—"
+                    )}
                   </span>
-                  <ChevronRight className="w-4 h-4 text-[var(--ws-label-3)]" />
                 </button>
+              ))}
+              <div className="ws-row">
+                <div className="min-w-0">
+                  <div className="text-[13px]">Faqat yangi fayllar</div>
+                  <div className="text-[11px] text-[var(--ws-label-2)] mt-0.5">
+                    Shu papkada bor fayllar o'tkazib yuboriladi — keyingi safar
+                    tez tugaydi
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={p.skipExisting}
+                  aria-label="Faqat yangi fayllar"
+                  className="ws-switch"
+                  disabled={p.isExporting}
+                  onClick={() => p.onSkipExistingChange(!p.skipExisting)}
+                />
               </div>
-            </section>
-          )}
+              <button
+                onClick={p.onOpenGallery}
+                className="ws-row w-full text-left hover:bg-white/[0.03] rounded-b-[10px]"
+              >
+                <span className="text-[13px] text-[var(--ws-accent)]">
+                  Galereyadan bittalab tanlash…
+                </span>
+                <ChevronRight className="w-4 h-4 text-[var(--ws-label-3)]" />
+              </button>
+            </div>
+          </section>
 
-          {/* Progress / action */}
-          {p.isMigrating ? (
+          {p.isExporting ? (
             <section className="ws-group p-4 space-y-2.5">
               <div className="flex items-center justify-between text-[12px]">
-                <span className="text-white font-medium truncate">
-                  {isPcMode
-                    ? p.currentAlbum
-                      ? `${p.currentAlbum} albomi ko'chirilmoqda`
-                      : "Fayllar Mac'ga yozilmoqda"
-                    : "Telefonlar o'rtasida uzatilmoqda"}
+                <span className="text-white font-medium">
+                  {p.progress === 0 && p.copiedCount === 0
+                    ? "Tayyorlanmoqda…"
+                    : "Mac'ga ko'chirilmoqda"}
                 </span>
                 <span className="tabular-nums text-white font-medium">
                   {p.progress}%
                 </span>
               </div>
               <div className="ws-progress">
-                <div style={{ width: `${Math.max(p.progress, 2)}%` }} />
+                <div style={{ width: `${Math.max(p.progress, 1)}%` }} />
               </div>
               <div className="flex items-center justify-between text-[12px] text-[var(--ws-label-2)] tabular-nums">
                 <span>
-                  {p.copiedCount > 0 &&
-                    `${p.copiedCount} ta fayl · ${formatBytes(p.copiedBytes)}`}
+                  {p.totalCount > 0 &&
+                    `${p.copiedCount} / ${p.totalCount} ta · ${formatBytes(p.copiedBytes)}`}
                   {p.speedText && ` · ${p.speedText}`}
                   {p.etaText && ` · ${p.etaText} qoldi`}
                 </span>
@@ -423,28 +361,30 @@ export const TransferView: React.FC<TransferViewProps> = (p) => {
           ) : (
             <div className="flex items-center justify-between gap-4">
               <div className="text-[12px] text-[var(--ws-label-2)] min-w-0">
-                {p.isExportSuccess ? (
+                {p.exportResult ? (
                   <span className="inline-flex items-center gap-1.5 text-[var(--ws-green)]">
-                    <CheckCircle2 className="w-4 h-4" /> Fayllar muvaffaqiyatli
-                    saqlandi.
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    {p.exportResult.copied > 0
+                      ? `${p.exportResult.copied} ta fayl saqlandi${
+                          p.exportResult.skipped > 0
+                            ? `, ${p.exportResult.skipped} tasi oldin bor edi`
+                            : ""
+                        }.`
+                      : `Yangi fayl yo'q — ${p.exportResult.skipped} tasi oldin saqlangan.`}
                     <button className="ws-link ml-1" onClick={p.onOpenFolder}>
                       Ko'rsatish
                     </button>
                   </span>
-                ) : !hasSource ? (
-                  "Davom etish uchun iPhone ulang."
-                ) : !isPcMode && !p.targetDevice ? (
-                  "Qabul qiluvchi iPhone'ni ham ulang."
                 ) : (
-                  "Fayllar asl sifatda (HEIC, ProRes) ko'chiriladi."
+                  status
                 )}
               </div>
               <button
                 className="ws-btn ws-btn-primary ws-btn-large shrink-0"
                 disabled={!canStart}
-                onClick={p.onStart}
+                onClick={() => p.onStart(scope)}
               >
-                {isPcMode ? "Mac'ga ko'chirish" : "Ko'chirishni boshlash"}
+                Mac'ga ko'chirish
               </button>
             </div>
           )}

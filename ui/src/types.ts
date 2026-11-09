@@ -45,29 +45,21 @@ export interface ConnectionSpeed {
   bus_type: string;
   max_bandwidth_mbps: number;
   is_cable_throttled: boolean;
-  negotiated_speed_mbps?: number;
-  port_location?: string;
+  negotiated_speed_mbps: number;
 }
 
 export interface CableDiagnostic {
   negotiated_speed_mbps: number;
-  negotiated_speed_text: string;
-  max_device_speed_mbps: number;
-  max_port_speed_mbps: number;
+  device_max_mbps: number;
   is_cable_throttled: boolean;
-  port_side: string;
-  port_name: string;
   mac_model: string;
-  verdict_summary: string;
-  verdict_details: string;
 }
 
 export interface CableBenchmarkResult {
   speed_mb_s: number;
   transferred_mb: number;
   elapsed_seconds: number;
-  cable_grade: string;
-  verdict: string;
+  sample_file: string;
 }
 
 export interface ConnectedDevice {
@@ -93,10 +85,6 @@ export interface SystemStatus {
   version: string;
 }
 
-export interface ExportStats {
-  dcim_count: number;
-  default_dir: string;
-}
 
 export interface ExportProgress {
   copied_files: number;
