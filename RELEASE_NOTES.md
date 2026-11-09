@@ -1,26 +1,20 @@
-## WireShift v1.0.0 — Apple Silicon (M1/M2/M3/M4) Release 🚀
+## WireShift v1.0.1 — Standalone Zero-Dependency Apple Silicon Release 🚀
 
-Ultra-Fast Direct Cable iPhone Migration, Selective Media Extraction & Hardware Diagnostics for macOS.
+Ultra-Fast Direct Cable iPhone Migration, Selective Media Extraction & Hardware Diagnostics for macOS (Apple Silicon M1/M2/M3/M4).
 
-### 🌟 What's New
+### 🌟 What's New in v1.0.1
 
-- ⚡ **Direct Cable Migration:** High-speed data transfer between iPhones or to Mac via physical USB-C / Thunderbolt / Lightning cable.
-- 🖼️ **Rasmlar & Videolar Galereyasi (Media Explorer):**
-  - Explore, filter, and selectively download heavy 4K/ProRes videos and original HEIC photos.
-  - Native 16:9 widescreen previews with format, size, and album badges.
-  - Smooth infinite scroll with dynamic card densities (*Ixcham*, *O'rta*, *Katta*).
-- ⏱️ **Real-Time Transfer Metrics:**
-  - Active MB/s throughput monitoring, dynamic percentage progress, and ETA countdown.
-- 🛑 **Instant Cancellation & Safety:**
-  - Safe transfer cancellation button and automated orphan process termination on `Cmd + Q`.
-- 🔌 **Cable Benchmark & Speed Test:**
-  - Measure real USB cable throughput to detect USB 2.0 (480 Mbps) vs USB 3.2 Gen 2 / Thunderbolt (10–40 Gbps).
-- 🔍 **Hardware Diagnostics:**
-  - Battery health capacity, cycle count, and forensic inspection.
+- 📦 **Zero-Configuration Standalone MobileDevice Bridge:**
+  - `libimobiledevice` (`idevice_id`, `ideviceinfo`, `afcclient`) va barcha kerakli dinamik kutubxonalar (`.dylib`) bevosita ilova paketi (`WireShift.app`) ichiga joylandi.
+  - Endi yangi yoki toza Mac kompyuterlarida Homebrew yoki qo'shimcha drayver o'rnatish talab etilmaydi — «Open qilding — ideal ishlaydi»!
+- 🔌 **Instant Cable Auto-Detection:**
+  - Mac bilan kabel orqali ulangan iPhone'lar dastur ochilishi bilan 1 soniyada avtomatik aniqlanadi.
+- ⚡ **Enhanced Runtime Environment Resolution:**
+  - macOS GUI muhitida dastur ichki resurslaridan tashqari tizim yo'llarini dinamik aniqlovchi xavfsiz Bridge resolver qo'shildi.
 
 ---
 
 ### 📦 Installation
 
-- **Option 1 (Recommended):** Download `WireShift_1.0.0_aarch64.pkg` and follow the guided macOS installer.
-- **Option 2:** Download `WireShift_1.0.0_aarch64.dmg`, open it, and drag `WireShift.app` into your Applications folder.
+- **Option 1 (Recommended):** `WireShift_1.0.1_aarch64.pkg` faylini yuklab oling va macOS installer orqali 1-click bilan o'rnating.
+- **Option 2:** `WireShift_1.0.1_aarch64.dmg` faylini oching va `WireShift.app` ni Applications papkasiga tashlang.

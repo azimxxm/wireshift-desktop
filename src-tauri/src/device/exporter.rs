@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::process::Command;
 use tokio::io::AsyncWriteExt;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use crate::device::Bridge;
 
 static EXPORT_CANCELLED: AtomicBool = AtomicBool::new(false);
 
@@ -111,7 +111,7 @@ impl FileExporter {
 
     /// List all DCIM photo albums/folders on the device
     pub async fn list_dcim_albums(udid: &str) -> Result<Vec<String>, String> {
-        let output = Command::new("afcclient")
+        let output = Bridge::tokio_cmd("afcclient")
             .arg("-u")
             .arg(udid)
             .arg("list")
@@ -140,7 +140,7 @@ impl FileExporter {
         let mut total = 0;
         for album in albums {
             let path = format!("/DCIM/{}", album);
-            if let Ok(out) = Command::new("afcclient")
+            if let Ok(out) = Bridge::tokio_cmd("afcclient")
                 .arg("-u")
                 .arg(udid)
                 .arg("list")
@@ -171,7 +171,7 @@ impl FileExporter {
         batch_script.push_str("ALBUM_MARKER_Downloads\nls -l /Downloads\n");
         batch_script.push_str("exit\n");
 
-        let mut child = Command::new("afcclient")
+        let mut child = Bridge::tokio_cmd("afcclient")
             .kill_on_drop(true)
             .arg("-u")
             .arg(udid)
@@ -319,7 +319,7 @@ impl FileExporter {
         }
         script.push_str("exit\n");
 
-        let mut child = Command::new("afcclient")
+        let mut child = Bridge::tokio_cmd("afcclient")
             .kill_on_drop(true)
             .arg("-u")
             .arg(udid)
@@ -363,7 +363,7 @@ impl FileExporter {
 
             let script = format!("get -rf {} {}\nexit\n", remote_path, dest.display());
 
-            let mut child = Command::new("afcclient")
+            let mut child = Bridge::tokio_cmd("afcclient")
                 .kill_on_drop(true)
                 .arg("-u")
                 .arg(udid)
@@ -392,7 +392,7 @@ impl FileExporter {
         let mut candidate_file: Option<String> = None;
 
         for album in albums {
-            let out = Command::new("afcclient")
+            let out = Bridge::tokio_cmd("afcclient")
                 .arg("-u")
                 .arg(udid)
                 .arg("ls")
@@ -422,7 +422,7 @@ impl FileExporter {
         let temp_file = temp_dir.join("wireshift_cable_test.bin");
 
         let start = std::time::Instant::now();
-        let status = Command::new("afcclient")
+        let status = Bridge::tokio_cmd("afcclient")
             .arg("-u")
             .arg(udid)
             .arg("get")
@@ -503,7 +503,7 @@ impl FileExporter {
         let remote_thumb_path = format!("/PhotoData/Thumbnails/V2/DCIM/{}/{}/5005.JPG", album, filename);
         let temp_dest = local_cached.to_str().unwrap_or("/tmp/thumb.jpg");
 
-        let status = Command::new("afcclient")
+        let status = Bridge::tokio_cmd("afcclient")
             .arg("-u")
             .arg(udid)
             .arg("get")
@@ -528,7 +528,7 @@ impl FileExporter {
 
         // 3. Fallback: try 5003.JPG
         let remote_thumb_path_alt = format!("/PhotoData/Thumbnails/V2/DCIM/{}/{}/5003.JPG", album, filename);
-        let status_alt = Command::new("afcclient")
+        let status_alt = Bridge::tokio_cmd("afcclient")
             .arg("-u")
             .arg(udid)
             .arg("get")
@@ -555,7 +555,7 @@ impl FileExporter {
         let stem = filename.rsplit_once('.').map(|(s, _)| s).unwrap_or(filename);
         for alt_ext in &["HEIC", "JPG", "PNG"] {
             let alt_path = format!("/PhotoData/Thumbnails/V2/DCIM/{}/{}.{}/5005.JPG", album, stem, alt_ext);
-            let status_live = Command::new("afcclient")
+            let status_live = Bridge::tokio_cmd("afcclient")
                 .arg("-u")
                 .arg(udid)
                 .arg("get")
@@ -625,7 +625,7 @@ impl FileExporter {
         }
         script.push_str("exit\n");
 
-        let child = Command::new("afcclient")
+        let child = Bridge::tokio_cmd("afcclient")
             .kill_on_drop(true)
             .arg("-u")
             .arg(udid)
@@ -667,7 +667,7 @@ impl FileExporter {
             }
             script_alt.push_str("exit\n");
 
-            let child_alt = Command::new("afcclient")
+            let child_alt = Bridge::tokio_cmd("afcclient")
                 .kill_on_drop(true)
                 .arg("-u")
                 .arg(udid)
@@ -716,7 +716,7 @@ impl FileExporter {
             }
             script_live.push_str("exit\n");
 
-            let child_live = Command::new("afcclient")
+            let child_live = Bridge::tokio_cmd("afcclient")
                 .kill_on_drop(true)
                 .arg("-u")
                 .arg(udid)

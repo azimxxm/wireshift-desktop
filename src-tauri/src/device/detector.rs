@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tokio::process::Command;
+use crate::device::Bridge;
 use crate::device::model::{resolve_marketing_name, BatteryInfo, ConnectedDevice, ConnectionSpeed, IcloudStatus, StorageInfo};
 
 struct CachedScan {
@@ -17,7 +18,7 @@ pub struct DeviceDetector;
 impl DeviceDetector {
     /// List all connected iOS device UDIDs via `idevice_id -l`
     pub async fn list_udids() -> Result<Vec<String>, String> {
-        let output = Command::new("idevice_id")
+        let output = Bridge::tokio_cmd("idevice_id")
             .arg("-l")
             .output()
             .await
@@ -51,7 +52,7 @@ impl DeviceDetector {
     /// Fetch full inspection & diagnostics for a specific device by UDID
     pub async fn inspect_device(udid: &str) -> Result<ConnectedDevice, String> {
         // 1. General device info
-        let info_out = Command::new("ideviceinfo")
+        let info_out = Bridge::tokio_cmd("ideviceinfo")
             .arg("-u")
             .arg(udid)
             .output()
@@ -210,7 +211,7 @@ impl DeviceDetector {
 
     /// Query battery domain: com.apple.mobile.battery
     async fn fetch_battery(udid: &str) -> Option<BatteryInfo> {
-        let output = Command::new("ideviceinfo")
+        let output = Bridge::tokio_cmd("ideviceinfo")
             .arg("-u")
             .arg(udid)
             .arg("-q")
@@ -250,7 +251,7 @@ impl DeviceDetector {
 
     /// Query disk storage domain: com.apple.disk_usage
     async fn fetch_storage(udid: &str) -> Option<StorageInfo> {
-        let output = Command::new("ideviceinfo")
+        let output = Bridge::tokio_cmd("ideviceinfo")
             .arg("-u")
             .arg(udid)
             .arg("-q")

@@ -34,7 +34,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose, status 
         {/* App Title & Version */}
         <h2 className="text-xl font-bold tracking-tight text-white mb-0.5">WireShift</h2>
         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#0A84FF]/15 text-[#0A84FF] border border-[#0A84FF]/30 mb-3">
-          <span>v1.0.0 Production • macOS Native</span>
+          <span>v1.0.1 Production • macOS Native</span>
         </div>
 
         <p className="text-xs text-white/60 max-w-xs mx-auto mb-5 leading-relaxed">

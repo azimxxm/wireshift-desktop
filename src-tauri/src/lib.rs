@@ -1,6 +1,6 @@
 pub mod device;
 
-use device::{ConnectedDevice, DeviceDetector, FileExporter};
+use device::{Bridge, ConnectedDevice, DeviceDetector, FileExporter};
 
 #[tauri::command]
 async fn get_connected_devices() -> Result<Vec<ConnectedDevice>, String> {
@@ -97,23 +97,20 @@ async fn open_folder_in_finder(path: String) -> Result<(), String> {
 #[tauri::command]
 async fn check_system_status() -> Result<serde_json::Value, String> {
     let usbmuxd_running = std::path::Path::new("/var/run/usbmuxd").exists() || cfg!(target_os = "windows");
-    let has_ideviceinfo = tokio::process::Command::new("ideviceinfo")
-        .arg("--version")
-        .output()
-        .await
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    let has_ideviceinfo = Bridge::is_available().await;
 
     Ok(serde_json::json!({
         "usbmuxd": usbmuxd_running,
         "libimobiledevice": has_ideviceinfo,
         "bundle": "uz.azimjondev.wireshift",
-        "version": "1.0.0"
+        "version": "1.0.1"
     }))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    Bridge::init_environment();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
