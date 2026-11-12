@@ -242,6 +242,19 @@ async fn wifi_thumbnail(key: String) -> Result<String, String> {
     wifi::preview(&key).await
 }
 
+/// Click on a received file: open it, or show it in Finder
+#[tauri::command]
+async fn wifi_open_received(id: String, reveal: bool) -> Result<(), String> {
+    wifi::open_received(&id, reveal).await
+}
+
+/// "Tozalash": clear finished rows from the Wi-Fi page (files on disk stay)
+#[tauri::command]
+async fn wifi_clear_history() -> Result<(), String> {
+    wifi::clear_history();
+    Ok(())
+}
+
 /// ✕ on an incoming row: stop that upload, the phone sees "Mac bekor qildi"
 #[tauri::command]
 async fn wifi_cancel_upload(id: String) -> Result<(), String> {
@@ -256,6 +269,8 @@ async fn wifi_clear_outgoing() -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // logs go to stderr (Console.app / terminal); without this every tracing call is dropped
+    let _ = tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).try_init();
     Bridge::init_environment();
 
     tauri::Builder::default()
@@ -303,6 +318,8 @@ pub fn run() {
             wifi_remove_outgoing,
             wifi_clear_outgoing,
             wifi_thumbnail,
+            wifi_open_received,
+            wifi_clear_history,
             wifi_cancel_upload
         ])
         .run(tauri::generate_context!())

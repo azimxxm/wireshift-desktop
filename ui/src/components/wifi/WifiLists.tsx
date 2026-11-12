@@ -7,7 +7,9 @@ import {
   FileImage,
   FilePlus2,
   FileVideo,
+  FolderOpen,
   FolderPlus,
+  FolderSearch,
   Send,
   X,
 } from "lucide-react";
@@ -59,12 +61,19 @@ const CancelledLabel: React.FC<{ by: "phone" | "mac" }> = ({ by }) => (
   <span className="text-[var(--ws-label-3)]">{by === "mac" ? "Bekor qilindi" : "Telefonda bekor"}</span>
 );
 
+const openReceived = (id: string, reveal: boolean) =>
+  invoke("wifi_open_received", { id, reveal }).catch((e) => alert(String(e)));
+
 const IncomingRow: React.FC<{ item: WifiIncoming; onCancel: () => void }> = ({ item, onCancel }) => {
   const done = !!item.saved_as;
   const cancelled = item.cancelled_by;
   const percent = item.size ? Math.floor((item.received / item.size) * 100) : 100;
   return (
-    <div className={`ws-row ws-wifi-fade ${cancelled ? "opacity-60" : ""}`}>
+    <div
+      className={`ws-row ws-wifi-fade group ${cancelled ? "opacity-60" : ""} ${done ? "cursor-pointer hover:bg-white/[0.03]" : ""}`}
+      onDoubleClick={done ? () => openReceived(item.id, false) : undefined}
+      title={done ? "Ikki marta bosing — ochiladi" : undefined}
+    >
       <Thumb previewKey={done ? `in-${item.id}` : null} name={item.name} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-3">
@@ -75,10 +84,25 @@ const IncomingRow: React.FC<{ item: WifiIncoming; onCancel: () => void }> = ({ i
         </div>
         {!cancelled && <Progress percent={percent} done={done} />}
       </div>
-      <span className="w-[96px] shrink-0 text-right text-[12px] tabular-nums">
+      <span className="w-[120px] shrink-0 flex justify-end text-right text-[12px] tabular-nums">
         {done ? (
-          <span className="inline-flex items-center gap-1 text-[var(--ws-green)]">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Saqlandi
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 text-[var(--ws-green)] group-hover:hidden">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Saqlandi
+            </span>
+            <button
+              className="ws-btn !h-6 !px-2 !text-[11px] hidden group-hover:inline-flex"
+              onClick={() => openReceived(item.id, false)}
+            >
+              Ochish
+            </button>
+            <button
+              className="ws-icon-btn !w-6 !h-6 hidden group-hover:inline-flex"
+              title="Finder'da ko'rsatish"
+              onClick={() => openReceived(item.id, true)}
+            >
+              <FolderSearch className="w-3.5 h-3.5" />
+            </button>
           </span>
         ) : cancelled ? (
           <CancelledLabel by={cancelled} />
@@ -100,7 +124,9 @@ export const IncomingList: React.FC<{
   items: WifiIncoming[];
   running: boolean;
   onCancel: (id: string) => void;
-}> = ({ items, running, onCancel }) => {
+  onOpenFolder: () => void;
+  onClear: () => void;
+}> = ({ items, running, onCancel, onOpenFolder, onClear }) => {
   if (!running && items.length === 0) return null;
   const saved = items.filter((i) => i.saved_as).length;
   return (
@@ -108,8 +134,22 @@ export const IncomingList: React.FC<{
       <div className="ws-section-title flex justify-between">
         <span>Telefondan kelgan fayllar</span>
         {items.length > 0 && (
-          <span className="tabular-nums">
-            {saved} / {items.length} ta saqlandi
+          <span className="flex items-center gap-3">
+            <span className="tabular-nums">
+              {saved} / {items.length} ta saqlandi
+            </span>
+            <button className="ws-btn !h-6 !px-2 !text-[11px] inline-flex items-center gap-1" onClick={onOpenFolder}>
+              <FolderOpen className="w-3.5 h-3.5" /> Papkani ochish
+            </button>
+            {items.some((i) => i.saved_as || i.cancelled_by) && (
+              <button
+                className="ws-link text-[11px]"
+                title="Ro'yxatni tozalaydi — saqlangan fayllar Mac'da qoladi"
+                onClick={onClear}
+              >
+                Tozalash
+              </button>
+            )}
           </span>
         )}
       </div>

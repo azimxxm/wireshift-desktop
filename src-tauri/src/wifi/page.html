@@ -102,7 +102,7 @@ h1{font-size:34px;line-height:1.1;font-weight:700;letter-spacing:-.02em;margin:4
 .steps li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:var(--acc-soft);color:var(--acc);font:600 13px/24px var(--num);text-align:center}
 .steps b{font-weight:600}
 .card-title{padding:14px 16px 0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t2)}
-.bulk{padding:16px}
+.bulk{padding:16px}.zip-btn{margin-top:10px;min-height:48px}
 .bulk-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums}
 .linkbtn{background:none;border:0;padding:4px 0;color:var(--acc);font-size:15px;cursor:pointer}
 button.thumb-wrap{border:0;padding:0;background:none;border-radius:10px;cursor:pointer}
@@ -170,16 +170,17 @@ a.name{display:block;color:inherit;text-decoration:none}
 
 <section id="pane-get" class="pane" hidden>
   <div id="bulk" class="card bulk" hidden>
-    <a id="bulkBtn" class="btn press" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M5 20h14"/></svg><span id="bulkLabel">Hammasini olish</span></a>
+    <button id="bulkBtn" class="btn press" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M5 20h14"/></svg><span id="bulkLabel">Hammasini olish</span></button>
+    <a id="zipBtn" class="btn sec press zip-btn" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg><span id="zipLabel">Zip qilib olish</span></a>
     <div class="bulk-meta"><span id="bulkMeta"></span><button id="bulkClear" class="linkbtn" hidden>Tanlovni bekor qilish</button></div>
   </div>
   <div id="outList" class="card"></div>
   <div class="card">
     <div class="card-title">Rasmlar ilovasiga saqlash</div>
     <ol class="steps">
-      <li><span><b>Hammasini olish</b> → bitta <b>.zip</b> fayl <b>Files → Downloads</b> papkasiga tushadi</span></li>
-      <li><span>Zip'ni Files'da bosing — u o'sha yerda papkaga ochiladi</span></li>
-      <li><span>Papkani oching → <b>Select</b> → <b>Select All</b> → <b>Share</b> → <b>Save N Items</b></span></li>
+      <li><span><b>Hammasini olish</b> → fayllar birma-bir <b>Files → Downloads</b> papkasiga tushadi</span></li>
+      <li><span>Downloads'da <b>Select</b> → kerakli fayllarni belgilang → <b>Share</b> → <b>Save N Items</b></span></li>
+      <li><span>Hammasini bitta faylda olmoqchi bo'lsangiz — <b>Zip qilib olish</b> (Files'da bosilganda papkaga ochiladi)</span></li>
       <li><span>Bitta rasm: nomini bosib oching, ustiga uzoq bosing → <b>Save to Photos</b></span></li>
     </ol>
   </div>
@@ -577,24 +578,67 @@ a.name{display:block;color:inherit;text-decoration:none}
     return 'WireShift ' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + '.' + p(d.getMinutes()) + '.zip';
   };
 
-  // one tap target for many files: a single file directly, several as one .zip
-  function renderBulk() {
-    const list = selected.size ? outFiles.filter((f) => selected.has(f.id)) : outFiles;
-    $('bulk').hidden = outFiles.length < 2;
-    const btn = $('bulkBtn');
-    if (list.length === 1) {
-      btn.href = fileUrl(list[0], false);
-      btn.setAttribute('download', list[0].name);
-    } else {
-      const name = zipName();
-      btn.href = '/api/zip?ids=' + list.map((f) => f.id).join(',') + '&name=' + encodeURIComponent(name) + '&tz=' + -new Date().getTimezoneOffset() + '&k=' + encodeURIComponent(K);
-      btn.setAttribute('download', name);
-    }
-    $('bulkLabel').textContent = (selected.size ? 'Tanlanganlarni olish (' : 'Hammasini olish (') + list.length + ')';
-    $('bulkMeta').textContent = (list.length > 1 ? 'Bitta .zip fayl · ' : '') + fmt(list.reduce((a, f) => a + f.size, 0));
-    $('bulkClear').hidden = selected.size === 0;
+  const rowSubs = new Map();
+  // gap between automatic downloads, so the browser shows (and keeps) each one
+  const DOWNLOAD_GAP_MS = 1500;
+  let queue = null; // { left: [...], timer } while "Hammasini olish" runs
+
+  const bulkList = () => (selected.size ? outFiles.filter((f) => selected.has(f.id)) : outFiles);
+
+  function startDownload(f) {
+    const a = document.createElement('a');
+    a.href = fileUrl(f, false);
+    a.setAttribute('download', f.name);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    const sub = rowSubs.get(f.id);
+    if (sub) { sub.className = 'sub ok'; sub.textContent = 'Yuklanmoqda → Files → Downloads'; }
   }
-  $('bulkBtn').addEventListener('click', () => { haptic(); renderBulk(); });
+
+  function stopQueue() {
+    if (queue) clearTimeout(queue.timer);
+    queue = null;
+    renderBulk();
+  }
+
+  // "Hammasini olish": every file as its own download, one after another
+  function runQueue(total) {
+    if (!queue) return;
+    const f = queue.left.shift();
+    if (!f) { stopQueue(); $('bulkMeta').textContent = total + ' ta fayl yuklashga berildi'; return; }
+    startDownload(f);
+    $('bulkMeta').textContent = (total - queue.left.length) + ' / ' + total + ' yuklashga berildi';
+    queue.timer = setTimeout(() => runQueue(total), DOWNLOAD_GAP_MS);
+  }
+
+  function renderBulk() {
+    const list = bulkList();
+    $('bulk').hidden = outFiles.length < 2;
+    const total = fmt(list.reduce((a, f) => a + f.size, 0));
+    $('bulkLabel').textContent = queue
+      ? "To'xtatish"
+      : (selected.size ? 'Tanlanganlarni olish (' : 'Hammasini olish (') + list.length + ')';
+    if (!queue) $('bulkMeta').textContent = list.length + ' ta fayl · birma-bir · ' + total;
+    const zip = $('zipBtn');
+    zip.hidden = list.length < 2;
+    const name = zipName();
+    zip.href = '/api/zip?ids=' + list.map((f) => f.id).join(',') + '&name=' + encodeURIComponent(name) + '&tz=' + -new Date().getTimezoneOffset() + '&k=' + encodeURIComponent(K);
+    zip.setAttribute('download', name);
+    $('zipLabel').textContent = 'Zip qilib olish (' + list.length + ') · bitta fayl';
+    $('bulkClear').hidden = selected.size === 0 || !!queue;
+  }
+  $('bulkBtn').addEventListener('click', () => {
+    haptic();
+    if (queue) { stopQueue(); return; }
+    const list = bulkList();
+    if (!list.length) return;
+    queue = { left: list.slice(), timer: 0 };
+    renderBulk();
+    runQueue(list.length); // first download starts inside the tap, as browsers require
+  });
+  $('zipBtn').addEventListener('click', () => { haptic(); renderBulk(); });
   $('bulkClear').addEventListener('click', () => {
     haptic();
     selected.clear();
@@ -636,6 +680,7 @@ a.name{display:block;color:inherit;text-decoration:none}
     name.rel = 'noopener';
     const sub = el('div', 'sub', fmt(f.size) + (f.kind === 'video' ? ' · video' : f.kind === 'image' ? ' · rasm' : ''));
     main.append(name, sub);
+    rowSubs.set(f.id, sub);
     const dl = el('a', 'btn pill press');
     dl.innerHTML = ICONS.down;
     dl.append('Olish');

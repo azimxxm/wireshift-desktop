@@ -184,6 +184,15 @@ impl Shared {
             .collect()
     }
 
+    /// "Tozalash": drop finished and cancelled rows from the lists. Files stay on disk.
+    pub fn clear_finished(&self) {
+        lock(&self.uploads).retain(|u| {
+            let v = u.view();
+            v.saved_as.is_none() && v.cancelled_by.is_none()
+        });
+        lock(&self.zips).retain(|z| *lock(&z.state) == ZipState::Running);
+    }
+
     pub fn incoming(&self) -> Vec<IncomingView> {
         lock(&self.uploads).iter().map(|u| u.view()).collect()
     }

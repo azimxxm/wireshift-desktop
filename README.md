@@ -104,7 +104,9 @@ Ikkinchi yo'l rasm eskizlari keshini o'chiradi. Mac'ga ko'chirilgan rasm va vide
 4. 📲 **iPhone'ga yuborish (Mac → iPhone)** — video, rasm va fayllarni Mac'dan telefonga kabel orqali yuboradi.
    Fayllar telefondagi ilova (masalan VLC) papkasiga tushadi: **Files → On My iPhone → ilova → WireShift …**,
    u yerdan **Select All → Share → Save to Photos**. Finder'dan tortib tashlash ham ishlaydi.
-5. 🔍 **Diagnostika** — batareya salomatligi, sikllar, mAh, xotira, model/hudud (masalan J/A), IMEI, SIM va boshqalar.
+5. 📶 **Wi-Fi orqali (QR kod)** — kabelsiz: QR'ni iPhone kamerasi bilan skanerlang, Safari'da ochilgan sahifadan
+   rasm/videolarni Mac'ga yuboring yoki Mac'dagi fayllarni oling. Ilova o'rnatish shart emas, bitta Wi-Fi kerak.
+6. 🔍 **Diagnostika** — batareya salomatligi, sikllar, mAh, xotira, model/hudud (masalan J/A), IMEI, SIM va boshqalar.
 
 Ilova telefondagi rasm va videolarni faqat o'qiydi — hech narsa o'chirilmaydi yoki o'zgartirilmaydi.
 Yagona yozish — «iPhone'ga yuborish»da tanlangan ilovaning yangi papkasiga fayl qo'shish.

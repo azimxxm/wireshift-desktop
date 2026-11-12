@@ -189,6 +189,33 @@ fn preview_source(key: &str) -> Option<PathBuf> {
     Some(shared.dest_dir.join(saved))
 }
 
+/// "Tozalash" on the Mac page: while running, finished rows go away;
+/// after "To'xtatish" the whole last session is forgotten. Saved files are never deleted.
+pub fn clear_history() {
+    if let Some(run) = lock(&SERVER).as_ref() {
+        run.shared.clear_finished();
+        return;
+    }
+    *lock(&LAST) = None;
+}
+
+/// Open a file the phone sent (or show it in Finder). Only ids of this session's uploads work.
+pub async fn open_received(id: &str, reveal: bool) -> Result<(), String> {
+    let path = preview_source(&format!("in-{id}")).ok_or("Fayl topilmadi")?;
+    if !path.exists() {
+        return Err("Fayl Mac'da topilmadi (o'chirilgan yoki ko'chirilgan)".into());
+    }
+    let mut cmd = tokio::process::Command::new("/usr/bin/open");
+    if reveal {
+        cmd.arg("-R");
+    }
+    let status = cmd.arg(&path).status().await.map_err(|e| e.to_string())?;
+    if !status.success() {
+        return Err("Faylni ochib bo'lmadi".into());
+    }
+    Ok(())
+}
+
 const PREVIEW_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
 
 /// Quick Look thumbnail (photos and videos) for the Mac page, as a data: URL

@@ -148,6 +148,8 @@ export const WifiView: React.FC<WifiViewProps> = ({ exportPath }) => {
             items={status?.incoming ?? []}
             running={running}
             onCancel={(id) => callAndRefresh("wifi_cancel_upload", { id })}
+            onOpenFolder={openFolder}
+            onClear={() => callAndRefresh("wifi_clear_history", {})}
           />
           <OutgoingList
             items={status?.outgoing ?? []}
