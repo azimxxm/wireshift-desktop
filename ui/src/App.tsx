@@ -9,6 +9,7 @@ import { DiagnosticsView } from "./components/DiagnosticsView";
 import { SettingsView } from "./components/SettingsView";
 import { AboutModal } from "./components/AboutModal";
 import { ImportView, ImportBusyState } from "./components/ImportView";
+import { WifiView } from "./components/wifi/WifiView";
 import {
   ConnectedDevice,
   SystemStatus,
@@ -157,16 +158,17 @@ export function App() {
     setExportResult(null);
   }, [sourceDevice?.udid]);
 
-  // ⌘1-5 pages, ⌘, settings, ⌘R rescan
+  // ⌘1-6 pages (sidebar order), ⌘, settings, ⌘R rescan
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.metaKey || e.altKey || e.ctrlKey) return;
       const tabs: Record<string, TabId> = {
         "1": "transfer",
         "2": "import",
-        "3": "media",
-        "4": "cable",
-        "5": "diagnostics",
+        "3": "wifi",
+        "4": "media",
+        "5": "cable",
+        "6": "diagnostics",
         ",": "settings",
       };
       if (tabs[e.key]) {
@@ -428,6 +430,9 @@ export function App() {
             onBusyChange={setImportBusy}
           />
         </div>
+
+        {/* mounted only while visible: its Finder drop listener must not compete with ImportView */}
+        {currentTab === "wifi" && <WifiView exportPath={exportPath} />}
 
         {currentTab === "media" && (
           <MediaExplorer

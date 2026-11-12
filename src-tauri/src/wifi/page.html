@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="referrer" content="no-referrer">
+<title>WireShift · Wi-Fi</title>
+<style>
+/* anchor: native iOS Files/Settings-grade utility. One blue hero, green for success. */
+:root{
+  --bg:#000;--card:#1c1c1e;--card2:#2c2c2e;--fill:rgba(118,118,128,.24);--line:rgba(84,84,88,.6);
+  --t:#fff;--t2:rgba(235,235,245,.6);--t3:rgba(235,235,245,.3);
+  --acc:#0a84ff;--acc-soft:rgba(10,132,255,.18);--ok:#30d158;--ok-soft:rgba(48,209,88,.18);--err:#ff453a;
+  --bar:rgba(0,0,0,.72);--seg:rgba(118,118,128,.24);--seg-on:#636366;
+  --spring:cubic-bezier(.3,1.5,.5,1);--ease:cubic-bezier(.2,.8,.2,1);
+  --num:ui-rounded,-apple-system,"SF Pro Rounded",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: light){:root{
+  --bg:#f2f2f7;--card:#fff;--card2:#e5e5ea;--fill:rgba(120,120,128,.16);--line:rgba(60,60,67,.18);
+  --t:#000;--t2:rgba(60,60,67,.6);--t3:rgba(60,60,67,.3);
+  --acc:#007aff;--acc-soft:rgba(0,122,255,.12);--ok:#34c759;--ok-soft:rgba(52,199,89,.15);--err:#ff3b30;
+  --bar:rgba(242,242,247,.8);--seg:rgba(118,118,128,.12);--seg-on:#fff;
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--t)}
+body{font:17px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%;
+  padding:0 max(16px,env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 32px) max(16px,env(safe-area-inset-left));max-width:600px;margin:0 auto}
+button{font:inherit;color:inherit}
+.nav{position:sticky;top:0;z-index:5;margin:0 -16px;padding:calc(env(safe-area-inset-top) + 10px) 16px 12px;
+  background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+.eyebrow{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t2)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--t3);transition:background .3s}
+.on .dot{background:var(--ok);box-shadow:0 0 10px var(--ok)}.off .dot{background:var(--err)}
+h1{font-size:34px;line-height:1.1;font-weight:700;letter-spacing:-.02em;margin:4px 0 14px}
+.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:2px;border-radius:10px;background:var(--seg)}
+.seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:8px;background:var(--seg-on);
+  box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04);transition:transform .45s var(--spring)}
+.seg[data-tab=get] .seg-thumb{transform:translateX(100%)}
+.seg button{position:relative;z-index:1;height:36px;border:0;background:none;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px}
+.badge{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--acc);color:#fff;font:600 12px/20px var(--num)}
+.badge.pop{animation:pop .5s var(--spring)}
+.banner{margin-top:12px;border-radius:12px;padding:12px 14px;font-size:15px;background:rgba(255,69,58,.14);color:var(--err)}
+.pane{animation:fade-up .35s var(--ease)}
+.card{background:var(--card);border-radius:14px;overflow:hidden;margin-top:14px}
+.pad{padding:16px}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 20px 20px}
+.orb{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--acc-soft);color:var(--acc);margin-bottom:14px}
+.orb svg{width:34px;height:34px}
+.hero h2{font-size:22px;letter-spacing:-.01em;margin:0 0 6px}
+.hero p{margin:0;font-size:15px;color:var(--t2);max-width:300px}
+.hero.compact{padding:16px}.hero.compact .orb,.hero.compact h2,.hero.compact p{display:none}.hero.compact .btns{margin-top:0}
+.btns{display:grid;gap:10px;margin-top:20px;width:100%}
+.btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;border-radius:14px;border:0;
+  font-size:17px;font-weight:600;color:#fff;background:var(--acc);width:100%;text-decoration:none;cursor:pointer;overflow:hidden}
+.btn svg{width:22px;height:22px;flex:none}
+.btn.sec{background:var(--fill);color:var(--acc)}
+.btn input{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:0;cursor:pointer}
+.pill{min-height:34px;padding:0 14px;border-radius:17px;font-size:15px;width:auto;gap:6px}
+.pill svg{width:16px;height:16px}
+.press{transition:transform .35s var(--spring),opacity .2s}
+.press:active{transform:scale(.96);opacity:.85;transition-duration:.08s}
+.tip{display:flex;gap:10px;margin:12px 4px 0;font-size:13px;color:var(--t2)}
+.tip svg{flex:none;width:18px;height:18px;color:var(--acc);margin-top:1px}
+.tip b{color:var(--t);font-weight:600}
+.total{padding:18px 16px 16px}
+.total-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.big{font:700 48px/1 var(--num);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.big small{font-size:24px;color:var(--t2);margin-left:2px}
+.speed{text-align:right;font:600 20px/1.15 var(--num);font-variant-numeric:tabular-nums}
+.speed span{display:block;font:400 13px/1.3 -apple-system,sans-serif;color:var(--t2)}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;margin-top:12px}
+.bar>i{display:block;height:100%;width:0;border-radius:3px;background:var(--acc);transition:width .4s var(--ease),background .3s}
+.bar.ok>i{background:var(--ok)}
+.meta{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums}
+.done-state{display:flex;align-items:center;gap:14px}
+.done-state h3{margin:0;font-size:20px}.done-state p{margin:2px 0 0;font-size:14px;color:var(--t2)}
+.check{flex:none;width:52px;height:52px}
+.check circle{fill:var(--ok);transform-origin:center;animation:pop .5s var(--spring) both}
+.check path{fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:24;stroke-dashoffset:24;animation:draw .4s .25s var(--ease) forwards}
+.row{display:flex;align-items:center;gap:12px;padding:12px 16px;position:relative;animation:fade-up .35s var(--ease)}
+.row+.row::before{content:"";position:absolute;top:0;left:80px;right:0;height:.5px;background:var(--line)}
+.thumb-wrap{position:relative;flex:none;display:block}
+.thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;background:var(--card2);display:flex;align-items:center;justify-content:center;color:var(--t2)}
+.thumb svg{width:24px;height:24px}
+.mini{position:absolute;right:-5px;bottom:-5px;width:22px;height:22px;border-radius:50%;border:2px solid var(--card)}
+.main{flex:1;min-width:0}
+.name{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:13px;color:var(--t2);margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub.ok{color:var(--ok)}.sub.err{color:var(--err);white-space:normal}
+.row .bar{height:4px;margin-top:7px}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:36px 24px;color:var(--t2);font-size:15px}
+.empty .orb{background:var(--fill);color:var(--t2)}
+.empty b{color:var(--t);font-size:17px;margin-bottom:4px}
+.steps{list-style:none;margin:0;padding:4px 16px 14px;counter-reset:s;font-size:15px}
+.steps li{counter-increment:s;display:flex;gap:12px;padding:8px 0}
+.steps li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:var(--acc-soft);color:var(--acc);font:600 13px/24px var(--num);text-align:center}
+.steps b{font-weight:600}
+.card-title{padding:14px 16px 0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t2)}
+.bulk{padding:16px}
+.bulk-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums}
+.linkbtn{background:none;border:0;padding:4px 0;color:var(--acc);font-size:15px;cursor:pointer}
+button.thumb-wrap{border:0;padding:0;background:none;border-radius:10px;cursor:pointer}
+.sel{position:absolute;left:-6px;top:-6px;width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.9);background:rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;transition:transform .35s var(--spring),background .2s,border-color .2s}
+.sel svg{width:14px;height:14px;opacity:0;transition:opacity .15s}
+.selected .sel{background:var(--acc);border-color:var(--acc);transform:scale(1.12)}
+.selected .sel svg{opacity:1}
+.selected .thumb{box-shadow:0 0 0 3px var(--acc)}
+a.name{display:block;color:inherit;text-decoration:none}
+.hx{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+@keyframes fade-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .check path{stroke-dashoffset:0}
+}
+</style>
+</head>
+<body>
+<div class="nav">
+  <div id="link" class="eyebrow"><span class="dot"></span><span id="linkText">Ulanmoqda…</span></div>
+  <h1>WireShift</h1>
+  <div class="seg" id="seg" data-tab="send" role="tablist">
+    <span class="seg-thumb"></span>
+    <button role="tab" data-tab="send" aria-selected="true">Mac'ga yuborish</button>
+    <button role="tab" data-tab="get" aria-selected="false">Mac'dan olish <span id="badge" class="badge" hidden>0</span></button>
+  </div>
+  <div id="banner" class="banner" hidden></div>
+</div>
+
+<section id="pane-send" class="pane">
+  <div id="sendHero" class="card hero">
+    <div class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+    <h2>Rasm va videolarni Mac'ga</h2>
+    <p>Asl sifatda, kabelsiz. Fayllar Mac'dagi WireShift papkasiga tushadi.</p>
+    <div class="btns">
+      <label class="btn press"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>Rasm va video tanlash<input id="pickMedia" type="file" multiple accept="image/*,video/*"></label>
+      <label class="btn sec press"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Fayllardan tanlash<input id="pickAny" type="file" multiple></label>
+    </div>
+  </div>
+  <p class="tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Asl sifat (HEVC / HEIC) uchun tanlash oynasida <b>Options → Current</b> ni tanlang — aks holda iPhone videoni «Most Compatible»ga o'girishi mumkin. <b>Fayllardan</b> tanlanganlar doim asl holida ketadi.</span></p>
+
+  <div id="upBox" hidden>
+    <div class="card total" id="totalCard">
+      <div id="totalLive">
+        <div class="total-top">
+          <div class="big" id="upPct">0<small>%</small></div>
+          <div class="speed" id="upSpeed">—<span>tezlik</span></div>
+        </div>
+        <div class="bar" id="upTotalBar"><i></i></div>
+        <div class="meta"><span id="upCount">0 / 0 ta</span><span id="upBytes"></span></div>
+      </div>
+      <div id="totalDone" class="done-state" hidden>
+        <svg class="check" viewBox="0 0 52 52"><circle cx="26" cy="26" r="26"/><path d="M15 27l7 7 15-16"/></svg>
+        <div><h3>Hammasi Mac'ga saqlandi</h3><p id="doneMeta"></p></div>
+      </div>
+    </div>
+    <div id="upList" class="card"></div>
+    <p class="tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg><span>Tugaguncha shu sahifani ochiq qoldiring va ekranni o'chirmang. Uzilib qolsa — sahifani yangilang va fayllarni qayta tanlang: yetib kelgan qismlar qayta yuborilmaydi.</span></p>
+  </div>
+</section>
+
+<section id="pane-get" class="pane" hidden>
+  <div id="bulk" class="card bulk" hidden>
+    <a id="bulkBtn" class="btn press" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 10l6 6 6-6M5 20h14"/></svg><span id="bulkLabel">Hammasini olish</span></a>
+    <div class="bulk-meta"><span id="bulkMeta"></span><button id="bulkClear" class="linkbtn" hidden>Tanlovni bekor qilish</button></div>
+  </div>
+  <div id="outList" class="card"></div>
+  <div class="card">
+    <div class="card-title">Rasmlar ilovasiga saqlash</div>
+    <ol class="steps">
+      <li><span><b>Hammasini olish</b> → bitta <b>.zip</b> fayl <b>Files → Downloads</b> papkasiga tushadi</span></li>
+      <li><span>Zip'ni Files'da bosing — u o'sha yerda papkaga ochiladi</span></li>
+      <li><span>Papkani oching → <b>Select</b> → <b>Select All</b> → <b>Share</b> → <b>Save N Items</b></span></li>
+      <li><span>Bitta rasm: nomini bosib oching, ustiga uzoq bosing → <b>Save to Photos</b></span></li>
+    </ol>
+  </div>
+  <p class="tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg><span>Rasm ustiga bossangiz belgilanadi — faqat tanlanganlar olinadi. Bitta faylni «Olish» bilan olsa ham bo'ladi.</span></p>
+</section>
+<input type="checkbox" switch id="hx" class="hx" aria-hidden="true" tabindex="-1"><label for="hx" id="hxl" class="hx"></label>
+
+<script>
+(() => {
+  'use strict';
+  const K = new URLSearchParams(location.search).get('k') || '';
+  const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  };
+  const fmt = (b) => {
+    if (!b || b <= 0) return '0 B';
+    const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let v = b, i = 0;
+    while (v >= 1000 && i < u.length - 1) { v /= 1024; i++; }
+    return v.toFixed(i === 0 ? 0 : v < 100 ? 1 : 0) + ' ' + u[i];
+  };
+  const fmtSpeed = (bps) => (bps / 1048576).toFixed(bps >= 100 * 1048576 ? 0 : 1) + ' MB/s';
+  const fmtTime = (s) => s >= 3600 ? Math.floor(s / 3600) + ' soat ' + Math.round((s % 3600) / 60) + ' daq'
+    : s >= 60 ? Math.floor(s / 60) + ' daq ' + Math.round(s % 60) + ' s' : Math.max(1, Math.round(s)) + ' s';
+  const SVG = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+  const ICONS = {
+    video: SVG('<rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3"/>'),
+    image: SVG('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>'),
+    file: SVG('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>'),
+    down: SVG('<path d="M12 4v12M6 10l6 6 6-6M5 20h14"/>'),
+    inbox: SVG('<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>'),
+  };
+  const CHECK = '<svg class="check" viewBox="0 0 52 52"><circle cx="26" cy="26" r="26"/><path d="M15 27l7 7 15-16"/></svg>';
+  const iconBox = (kind) => { const d = el('div', 'thumb'); d.innerHTML = ICONS[kind] || ICONS.file; return d; };
+
+  // iOS 18+ Safari gives a light haptic tick when a switch input is toggled; harmless elsewhere
+  function haptic() {
+    try { if (navigator.vibrate) navigator.vibrate(8); else $('hxl').click(); } catch { /* no haptics */ }
+  }
+
+  class HttpError extends Error {
+    constructor(status, msg) { super(msg); this.status = status; }
+  }
+
+  async function api(path, body) {
+    const opts = { headers: { 'X-WS-Token': K } };
+    if (body !== undefined) {
+      opts.method = 'POST';
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    let r;
+    try { r = await fetch(path, opts); } catch { throw new HttpError(0, "Mac bilan aloqa yo'q"); }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new HttpError(r.status, data.error || 'Xatolik ' + r.status);
+    return data;
+  }
+
+  const retryable = (e) => !e.status || e.status === 408 || e.status === 429 || (e.status >= 500 && e.status !== 507);
+  async function withRetry(fn, tries = 6) {
+    for (let a = 1; ; a++) {
+      try { return await fn(); } catch (e) {
+        if (!retryable(e) || a >= tries) throw e;
+        await sleep(Math.min(500 * 2 ** a, 8000));
+      }
+    }
+  }
+
+  /* ---------- connection + tabs ---------- */
+  function setLink(ok, text, banner) {
+    $('link').className = 'eyebrow ' + (ok ? 'on' : 'off');
+    $('linkText').textContent = text;
+    $('banner').hidden = !banner;
+    $('banner').textContent = banner || '';
+  }
+
+  function showTab(tab) {
+    $('seg').dataset.tab = tab;
+    for (const b of $('seg').querySelectorAll('button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+    $('pane-send').hidden = tab !== 'send';
+    $('pane-get').hidden = tab !== 'get';
+  }
+  for (const b of $('seg').querySelectorAll('button')) {
+    b.addEventListener('click', () => { if ($('seg').dataset.tab !== b.dataset.tab) { haptic(); showTab(b.dataset.tab); } });
+  }
+
+  /* ---------- iPhone -> Mac (8 MB chunks, parallel, resumable) ---------- */
+  let PAR = 4;
+  const jobs = [];
+  let workers = 0;
+  let netSent = 0;
+  const samples = [];
+
+  const chunkLen = (j, i) => Math.min(j.cs, j.file.size - i * j.cs);
+  const liveSum = (j) => { let s = 0; j.live.forEach((v) => { s += v; }); return s; };
+
+  function addFiles(list) {
+    for (const file of list) {
+      const j = { file, id: '', cs: 8 << 20, todo: [], left: 0, done: 0, live: new Map(), state: 'wait', err: '', gen: 0, ready: null, speed: 0, lastGot: 0 };
+      j.ui = makeUpRow(j);
+      jobs.push(j);
+    }
+    $('upBox').hidden = jobs.length === 0;
+    $('sendHero').classList.toggle('compact', jobs.length > 0);
+    pump();
+  }
+
+  function pump() {
+    while (workers < PAR) {
+      workers++;
+      worker().finally(() => { workers--; });
+    }
+  }
+
+  async function worker() {
+    for (;;) {
+      const t = await takeTask();
+      if (!t) return;
+      await sendChunk(t.j, t.i, t.j.gen);
+    }
+  }
+
+  // next chunk of any file that is ready; a new file gets its upload id first
+  async function takeTask() {
+    for (;;) {
+      const up = jobs.find((j) => j.state === 'up' && j.todo.length);
+      if (up) return { j: up, i: up.todo.shift() };
+      const next = jobs.find((j) => j.state === 'wait');
+      if (next) { next.state = 'init'; next.ready = initJob(next); await next.ready; continue; }
+      const pending = jobs.find((j) => j.state === 'init');
+      if (pending) { await pending.ready; continue; }
+      return null;
+    }
+  }
+
+  async function initJob(j) {
+    try {
+      const f = j.file;
+      const r = await withRetry(() => api('/api/upload', { name: f.name, size: f.size, modified: f.lastModified || 0 }));
+      j.id = r.id;
+      j.cs = r.chunk_size;
+      if (r.saved_as) { j.skipped = true; j.done = f.size; markDone(j, r.saved_as); return; }
+      j.todo = r.missing.slice();
+      j.left = j.todo.length;
+      j.done = f.size - j.todo.reduce((a, i) => a + chunkLen(j, i), 0);
+      j.lastGot = j.done;
+      j.state = 'up';
+      if (j.left === 0) await finishJob(j);
+    } catch (e) { failJob(j, e); }
+  }
+
+  function putChunk(j, i, blob) {
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest();
+      x.open('PUT', '/api/chunk/' + j.id + '/' + i);
+      x.setRequestHeader('X-WS-Token', K);
+      x.timeout = 180000;
+      x.upload.onprogress = (e) => j.live.set(i, e.loaded);
+      x.onload = () => {
+        j.live.delete(i);
+        if (x.status >= 200 && x.status < 300) return resolve();
+        let msg = 'Xatolik ' + x.status;
+        try { msg = JSON.parse(x.responseText).error || msg; } catch { /* plain text */ }
+        reject(new HttpError(x.status, msg));
+      };
+      x.onerror = x.ontimeout = x.onabort = () => { j.live.delete(i); reject(new HttpError(0, 'Tarmoq uzildi')); };
+      x.send(blob);
+    });
+  }
+
+  async function sendChunk(j, i, gen) {
+    const start = i * j.cs;
+    const len = chunkLen(j, i);
+    try {
+      await withRetry(() => putChunk(j, i, j.file.slice(start, start + len)));
+    } catch (e) {
+      if (j.gen === gen) failJob(j, e);
+      return;
+    }
+    if (j.gen !== gen) return;
+    j.done += len;
+    netSent += len;
+    j.left -= 1;
+    if (j.left === 0 && j.state === 'up') await finishJob(j);
+  }
+
+  async function finishJob(j) {
+    try {
+      const r = await withRetry(() => api('/api/finish/' + j.id, {}));
+      markDone(j, r.saved_as);
+    } catch (e) { failJob(j, e); }
+  }
+
+  function markDone(j, savedAs) {
+    j.savedAs = savedAs;
+    j.state = 'done';
+    const badge = el('span', 'mini');
+    badge.innerHTML = CHECK;
+    badge.firstChild.style.width = badge.firstChild.style.height = '100%';
+    j.ui.thumbWrap.appendChild(badge);
+  }
+
+  function failJob(j, e) {
+    j.state = 'err';
+    j.err = (e && e.message) || 'Xatolik';
+    j.todo = [];
+    j.gen += 1;
+  }
+
+  function retryJob(j) {
+    haptic();
+    j.state = 'wait'; j.err = ''; j.live.clear(); j.done = 0;
+    pump();
+  }
+
+  function makeUpRow(j) {
+    const row = el('div', 'row');
+    const thumbWrap = el('div', 'thumb-wrap');
+    let thumb;
+    if (j.file.type.startsWith('image/') && j.file.size < 40e6) {
+      thumb = el('img', 'thumb');
+      thumb.alt = '';
+      thumb.src = URL.createObjectURL(j.file);
+      thumb.onerror = () => thumb.replaceWith(iconBox('image'));
+    } else {
+      thumb = iconBox(j.file.type.startsWith('video/') ? 'video' : 'file');
+    }
+    thumbWrap.appendChild(thumb);
+    const main = el('div', 'main');
+    const sub = el('div', 'sub');
+    const bar = el('div', 'bar');
+    bar.appendChild(el('i'));
+    main.append(el('div', 'name', j.file.name), sub, bar);
+    const retry = el('button', 'btn sec pill press', 'Qayta');
+    retry.hidden = true;
+    retry.onclick = () => retryJob(j);
+    row.append(thumbWrap, main, retry);
+    $('upList').appendChild(row);
+    return { sub, bar, retry, thumbWrap };
+  }
+
+  function renderJob(j, dt) {
+    const size = j.file.size;
+    const got = Math.min(size, j.done + liveSum(j));
+    const pct = size ? Math.floor((got / size) * 100) : 100;
+    if (j.state === 'up' && dt > 0) j.speed = j.speed * 0.6 + (Math.max(0, got - j.lastGot) / dt) * 0.4;
+    j.lastGot = got;
+    const eta = j.speed > 1024 ? ' · ' + fmtTime((size - got) / j.speed) : '';
+    const texts = {
+      wait: 'Navbatda · ' + fmt(size),
+      init: 'Tayyorlanmoqda…',
+      up: pct + '% · ' + (j.speed > 1024 ? fmtSpeed(j.speed) + eta : fmt(got) + ' / ' + fmt(size)),
+      done: j.skipped ? "Avval yuborilgan · Mac'da bor" : "Mac'ga saqlandi · " + fmt(size),
+      err: j.err,
+    };
+    j.ui.sub.textContent = texts[j.state];
+    j.ui.sub.className = 'sub' + (j.state === 'done' ? ' ok' : j.state === 'err' ? ' err' : '');
+    j.ui.bar.hidden = j.state === 'done';
+    j.ui.bar.firstChild.style.width = pct + '%';
+    j.ui.retry.hidden = j.state !== 'err';
+    return got;
+  }
+
+  let lastTick = 0;
+  let wasAllDone = false;
+  function renderUploads() {
+    if (!jobs.length) return;
+    const now = performance.now();
+    const dt = lastTick ? (now - lastTick) / 1000 : 0;
+    lastTick = now;
+    let total = 0, got = 0, done = 0, live = 0;
+    for (const j of jobs) {
+      total += j.file.size;
+      got += renderJob(j, dt);
+      live += liveSum(j);
+      if (j.state === 'done') done++;
+    }
+    samples.push([now, netSent + live]);
+    while (samples.length > 2 && now - samples[0][0] > 3000) samples.shift();
+    const [t0, b0] = samples[0];
+    const speed = now > t0 ? ((netSent + live - b0) / (now - t0)) * 1000 : 0;
+    const pct = total ? Math.floor((got / total) * 100) : 100;
+    const allDone = done === jobs.length;
+    $('upPct').innerHTML = pct + '<small>%</small>';
+    $('upSpeed').innerHTML = '';
+    $('upSpeed').append(speed > 1024 ? fmtSpeed(speed) : '—', el('span', '', speed > 1024 ? fmtTime((total - got) / speed) + ' qoldi' : 'tezlik'));
+    $('upTotalBar').firstChild.style.width = pct + '%';
+    $('upCount').textContent = done + ' / ' + jobs.length + ' ta';
+    $('upBytes').textContent = fmt(got) + ' / ' + fmt(total);
+    $('totalLive').hidden = allDone;
+    $('totalDone').hidden = !allDone;
+    if (allDone && !wasAllDone) {
+      $('doneMeta').textContent = jobs.length + ' ta fayl · ' + fmt(total);
+      const c = $('totalDone').querySelector('.check');
+      c.replaceWith(c.cloneNode(true)); // replay the checkmark animation
+      haptic();
+    }
+    wasAllDone = allDone;
+  }
+
+  for (const id of ['pickMedia', 'pickAny']) {
+    $(id).addEventListener('click', haptic);
+    $(id).addEventListener('change', (e) => {
+      addFiles(Array.from(e.target.files || []));
+      e.target.value = '';
+    });
+  }
+  window.addEventListener('beforeunload', (e) => {
+    if (jobs.some((j) => j.state === 'up' || j.state === 'init')) e.preventDefault();
+  });
+
+  /* ---------- Mac -> iPhone ---------- */
+  let outSig = '';
+  let outCount = 0;
+  const fileUrl = (f, inline) => '/api/file/' + f.id + '?k=' + encodeURIComponent(K) + (inline ? '&inline=1' : '');
+
+  async function shareFile(f, btn) {
+    btn.textContent = 'Tayyorlanmoqda…';
+    try {
+      const r = await fetch(fileUrl(f), { headers: { 'X-WS-Token': K } });
+      const file = new File([await r.blob()], f.name, { type: r.headers.get('Content-Type') || '' });
+      await navigator.share({ files: [file] });
+    } catch (e) { console.error('share failed', e); }
+    btn.textContent = 'Saqlash';
+  }
+
+  const selected = new Set();
+  let outFiles = [];
+  const zipName = () => {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return 'WireShift ' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + '.' + p(d.getMinutes()) + '.zip';
+  };
+
+  // one tap target for many files: a single file directly, several as one .zip
+  function renderBulk() {
+    const list = selected.size ? outFiles.filter((f) => selected.has(f.id)) : outFiles;
+    $('bulk').hidden = outFiles.length < 2;
+    const btn = $('bulkBtn');
+    if (list.length === 1) {
+      btn.href = fileUrl(list[0], false);
+      btn.setAttribute('download', list[0].name);
+    } else {
+      const name = zipName();
+      btn.href = '/api/zip?ids=' + list.map((f) => f.id).join(',') + '&name=' + encodeURIComponent(name) + '&tz=' + -new Date().getTimezoneOffset() + '&k=' + encodeURIComponent(K);
+      btn.setAttribute('download', name);
+    }
+    $('bulkLabel').textContent = (selected.size ? 'Tanlanganlarni olish (' : 'Hammasini olish (') + list.length + ')';
+    $('bulkMeta').textContent = (list.length > 1 ? 'Bitta .zip fayl · ' : '') + fmt(list.reduce((a, f) => a + f.size, 0));
+    $('bulkClear').hidden = selected.size === 0;
+  }
+  $('bulkBtn').addEventListener('click', () => { haptic(); renderBulk(); });
+  $('bulkClear').addEventListener('click', () => {
+    haptic();
+    selected.clear();
+    document.querySelectorAll('#outList .selected').forEach((n) => { n.classList.remove('selected'); n.setAttribute('aria-pressed', 'false'); });
+    renderBulk();
+  });
+
+  function makeOutRow(f) {
+    const row = el('div', 'row');
+    let thumb;
+    if (f.kind === 'image') {
+      thumb = el('img', 'thumb');
+      thumb.alt = '';
+      thumb.loading = 'lazy';
+      thumb.src = '/api/thumb/' + f.id + '?k=' + encodeURIComponent(K);
+      thumb.onerror = () => thumb.replaceWith(iconBox('image'));
+    } else {
+      thumb = iconBox(f.kind);
+    }
+    // tapping the picture selects it for the bulk download
+    const pick = el('button', 'thumb-wrap press' + (selected.has(f.id) ? ' selected' : ''));
+    pick.type = 'button';
+    pick.setAttribute('aria-pressed', String(selected.has(f.id)));
+    pick.setAttribute('aria-label', f.name + ' — belgilash');
+    const mark = el('span', 'sel');
+    mark.innerHTML = SVG('<path d="M5 12l5 5 9-10"/>');
+    pick.append(thumb, mark);
+    pick.addEventListener('click', () => {
+      haptic();
+      if (selected.has(f.id)) selected.delete(f.id); else selected.add(f.id);
+      pick.classList.toggle('selected', selected.has(f.id));
+      pick.setAttribute('aria-pressed', String(selected.has(f.id)));
+      renderBulk();
+    });
+    const main = el('div', 'main');
+    const name = el('a', 'name', f.name);
+    name.href = fileUrl(f, true);
+    name.target = '_blank';
+    name.rel = 'noopener';
+    const sub = el('div', 'sub', fmt(f.size) + (f.kind === 'video' ? ' · video' : f.kind === 'image' ? ' · rasm' : ''));
+    main.append(name, sub);
+    const dl = el('a', 'btn pill press');
+    dl.innerHTML = ICONS.down;
+    dl.append('Olish');
+    dl.href = fileUrl(f, false);
+    dl.setAttribute('download', f.name);
+    dl.addEventListener('click', () => {
+      haptic();
+      sub.className = 'sub ok';
+      sub.textContent = 'Yuklanmoqda → Files → Downloads';
+    });
+    row.append(pick, main);
+    // Web Share with files only exists on https; plain LAN http usually lacks it
+    if (window.isSecureContext && navigator.canShare && f.size < 500e6) {
+      const sh = el('button', 'btn sec pill press', 'Saqlash');
+      sh.onclick = () => shareFile(f, sh);
+      row.appendChild(sh);
+    }
+    row.appendChild(dl);
+    return row;
+  }
+
+  function renderOutgoing(files) {
+    const sig = JSON.stringify(files);
+    if (sig === outSig) return;
+    outSig = sig;
+    const badge = $('badge');
+    badge.hidden = files.length === 0;
+    badge.textContent = String(files.length);
+    if (files.length > outCount) { badge.classList.remove('pop'); void badge.offsetWidth; badge.classList.add('pop'); }
+    outCount = files.length;
+    outFiles = files;
+    for (const id of [...selected]) if (!files.some((f) => f.id === id)) selected.delete(id);
+    renderBulk();
+    const box = $('outList');
+    box.textContent = '';
+    if (!files.length) {
+      const empty = el('div', 'empty');
+      const orb = el('div', 'orb');
+      orb.innerHTML = ICONS.inbox;
+      empty.append(orb, el('b', '', "Mac'dan hali fayl yo'q"),
+        el('span', '', "Mac'dagi WireShift → Wi-Fi sahifasida fayllarni «Telefonga yuborish ro'yxati»ga torting — shu yerda darhol paydo bo'ladi."));
+      box.appendChild(empty);
+      return;
+    }
+    files.forEach((f) => box.appendChild(makeOutRow(f)));
+  }
+
+  async function poll() {
+    try {
+      const s = await api('/api/state');
+      PAR = Math.max(1, Math.min(6, s.parallel || 4));
+      renderOutgoing(s.files || []);
+      setLink(true, 'Mac bilan ulangan');
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) {
+        setLink(false, 'Kalit eskirgan', "Ulanish kaliti eskirgan. Mac'dagi WireShift → Wi-Fi sahifasidagi yangi QR kodni skanerlang.");
+      } else {
+        setLink(false, "Aloqa yo'q", "Mac bilan aloqa yo'q. WireShift'da Wi-Fi ulanish yoqilganini va telefon bilan Mac bitta Wi-Fi tarmog'ida ekanini tekshiring.");
+      }
+    }
+  }
+
+  if (!K) setLink(false, "Kalit yo'q", "Bu sahifani Mac'dagi QR kod orqali oching.");
+  if (location.hash === '#get') showTab('get');
+  poll();
+  setInterval(poll, 3000);
+  setInterval(renderUploads, 400);
+})();
+</script>
+</body>
+</html>

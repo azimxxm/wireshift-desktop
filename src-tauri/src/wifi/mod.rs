@@ -1,0 +1,229 @@
+//! Wi-Fi transfer: a small LAN-only HTTP server. The phone scans a QR code,
+//! opens a page in Safari and sends/receives files (no app on the phone).
+
+mod names;
+mod net;
+mod outgoing;
+mod qr;
+mod range;
+mod server;
+mod state;
+mod upload;
+mod zip;
+
+use std::net::{IpAddr, SocketAddr};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::Duration;
+
+use serde::Serialize;
+use tokio_util::sync::CancellationToken;
+
+pub use outgoing::OutgoingView;
+use state::{IncomingView, PhoneView, Shared};
+
+/// No request (and no bytes moving) for this long -> the server turns itself off
+const IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+const IDLE_CHECK_EVERY: Duration = Duration::from_secs(10);
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WifiInfo {
+    pub url: String,
+    pub qr_svg: String,
+    /// where the phone's files are saved
+    pub folder: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WifiStatus {
+    pub running: bool,
+    pub lan_ip: Option<String>,
+    pub url: Option<String>,
+    pub folder: Option<String>,
+    pub phone: Option<PhoneView>,
+    pub incoming: Vec<IncomingView>,
+    pub outgoing: Vec<OutgoingView>,
+    pub received_total: u64,
+    pub sent_total: u64,
+    pub stop_reason: Option<String>,
+}
+
+struct Running {
+    shared: Arc<Shared>,
+    cancel: CancellationToken,
+    info: WifiInfo,
+}
+
+static SERVER: Mutex<Option<Running>> = Mutex::new(None);
+/// The last stopped session, so the page still shows what came in (and why it stopped)
+static LAST: Mutex<Option<(Arc<Shared>, Option<String>)>> = Mutex::new(None);
+
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+pub fn info() -> Option<WifiInfo> {
+    lock(&SERVER).as_ref().map(|r| r.info.clone())
+}
+
+/// Thumbnail dirs left by a session that never stopped cleanly (app killed, crash)
+fn clear_stale_temp() {
+    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else { return };
+    for e in entries.flatten() {
+        if e.file_name().to_string_lossy().starts_with("wireshift-wifi-") {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
+}
+
+/// Binds on the Mac's LAN IPv4 with a random port and a fresh 128-bit key
+pub async fn start(export_dir: PathBuf, folder_name: &str) -> Result<WifiInfo, String> {
+    if let Some(existing) = info() {
+        return Ok(existing);
+    }
+    let ip = net::lan_ipv4()
+        .ok_or("Mac hech qanday Wi-Fi yoki Ethernet tarmog'iga ulanmagan (lokal IPv4 manzil topilmadi)")?;
+    let listener = tokio::net::TcpListener::bind(SocketAddr::new(IpAddr::V4(ip), 0))
+        .await
+        .map_err(|e| format!("Wi-Fi ulanishni ochib bo'lmadi ({ip}): {e}"))?;
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    clear_stale_temp();
+    let token = state::new_token()?;
+    let dest = export_dir.join(names::sanitize_file_name(folder_name));
+    let url = format!("http://{ip}:{port}/?k={token}");
+    let info = WifiInfo { qr_svg: qr::svg(&url)?, url, folder: dest.to_string_lossy().into_owned() };
+    let shared = Arc::new(Shared::new(token, dest));
+    let cancel = CancellationToken::new();
+    {
+        let mut slot = lock(&SERVER);
+        if let Some(r) = slot.as_ref() {
+            return Ok(r.info.clone()); // a second click raced us
+        }
+        *slot = Some(Running { shared: shared.clone(), cancel: cancel.clone(), info: info.clone() });
+    }
+    *lock(&LAST) = None;
+    tauri::async_runtime::spawn(server::run(listener, shared.clone(), cancel.clone()));
+    tauri::async_runtime::spawn(watch_idle(shared, cancel));
+    tracing::info!(%ip, port, "wifi server started");
+    Ok(info)
+}
+
+pub fn stop(reason: Option<String>) {
+    let Some(run) = lock(&SERVER).take() else { return };
+    run.cancel.cancel();
+    *lock(&LAST) = Some((run.shared, reason));
+    let _ = std::fs::remove_dir_all(preview_dir()); // regenerable Quick Look previews
+    tracing::info!("wifi server stopped");
+}
+
+async fn watch_idle(shared: Arc<Shared>, cancel: CancellationToken) {
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => return,
+            _ = tokio::time::sleep(IDLE_CHECK_EVERY) => {}
+        }
+        if shared.idle_for() >= IDLE_TIMEOUT {
+            stop(Some("15 daqiqa hech narsa yuborilmagani uchun ulanish o'chirildi".into()));
+            return;
+        }
+    }
+}
+
+pub fn status() -> WifiStatus {
+    let running = lock(&SERVER).as_ref().map(|r| (r.shared.clone(), r.info.clone()));
+    let (shared, url, reason) = match running {
+        Some((s, info)) => (Some(s), Some(info.url), None),
+        None => match lock(&LAST).clone() {
+            Some((s, reason)) => (Some(s), None, reason),
+            None => (None, None, None),
+        },
+    };
+    let (received_total, sent_total) = shared.as_ref().map_or((0, 0), |s| s.totals());
+    WifiStatus {
+        running: url.is_some(),
+        lan_ip: net::lan_ipv4().map(|ip| ip.to_string()),
+        url,
+        folder: shared.as_ref().map(|s| s.dest_dir.to_string_lossy().into_owned()),
+        phone: shared.as_ref().and_then(|s| s.phone()),
+        incoming: shared.as_ref().map(|s| s.incoming()).unwrap_or_default(),
+        outgoing: outgoing::list(),
+        received_total,
+        sent_total,
+        stop_reason: reason,
+    }
+}
+
+pub fn add_outgoing(paths: &[String]) -> Vec<OutgoingView> {
+    outgoing::add(paths)
+}
+
+pub fn remove_outgoing(id: u32) {
+    outgoing::remove(id)
+}
+
+pub fn clear_outgoing() {
+    outgoing::clear()
+}
+
+fn preview_dir() -> PathBuf {
+    std::env::temp_dir().join("wireshift-wifi-previews")
+}
+
+/// "out-<n>" = a file on the send list, "in-<id>" = a file the phone already sent
+fn preview_source(key: &str) -> Option<PathBuf> {
+    if let Some(n) = key.strip_prefix("out-") {
+        return outgoing::get(n.parse().ok()?).map(|e| e.path);
+    }
+    let id = key.strip_prefix("in-")?;
+    let shared = lock(&SERVER).as_ref().map(|r| r.shared.clone()).or_else(|| lock(&LAST).as_ref().map(|l| l.0.clone()))?;
+    let saved = shared.find_upload(id)?.view().saved_as?;
+    Some(shared.dest_dir.join(saved))
+}
+
+/// Quick Look thumbnail (photos and videos) for the Mac page, as a data: URL
+pub async fn preview(key: &str) -> Result<String, String> {
+    use base64::Engine;
+    let src = preview_source(key).ok_or("Fayl topilmadi")?;
+    let dir = preview_dir().join(names::sanitize_file_name(key));
+    let file_name = src.file_name().ok_or("Fayl nomi yo'q")?.to_string_lossy().into_owned();
+    let out = dir.join(format!("{file_name}.png"));
+    if !out.exists() {
+        tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
+        tokio::process::Command::new("/usr/bin/qlmanage")
+            .args(["-t", "-s", "160", "-o"])
+            .arg(&dir)
+            .arg(&src)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    let bytes = tokio::fs::read(&out).await.map_err(|_| "Ko'rinish yo'q".to_string())?;
+    Ok(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+#[cfg(test)]
+mod e2e {
+    use std::time::Duration;
+
+    /// Manual end-to-end run on the real LAN address (simulate the phone with curl/scripts):
+    /// WS_E2E_DIR=<export dir> WS_E2E_SECS=120 WS_E2E_OUT=<file:file> \
+    ///   cargo test --lib wifi::e2e -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn serve_for_manual_test() {
+        let dir = std::env::var("WS_E2E_DIR").expect("set WS_E2E_DIR");
+        let secs = std::env::var("WS_E2E_SECS").ok().and_then(|s| s.parse().ok()).unwrap_or(60);
+        if let Ok(out) = std::env::var("WS_E2E_OUT") {
+            super::add_outgoing(&out.split(':').map(String::from).collect::<Vec<_>>());
+        }
+        tauri::async_runtime::block_on(async move {
+            let info = super::start(dir.into(), "Wi-Fi e2e").await.expect("server start");
+            println!("WS_E2E_URL={}", info.url);
+            tokio::time::sleep(Duration::from_secs(secs)).await;
+            super::stop(None);
+            tokio::time::sleep(Duration::from_millis(800)).await;
+        });
+    }
+}

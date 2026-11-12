@@ -143,3 +143,48 @@ export interface ImportResult {
   copied: number;
   folder: string;
 }
+
+/* ---------- Wi-Fi transfer ---------- */
+
+export interface WifiInfo {
+  url: string;
+  qr_svg: string;
+  /** where files from the phone are saved */
+  folder: string;
+}
+
+export interface WifiPhone {
+  ip: string;
+  label: string;
+  connected: boolean;
+}
+
+export interface WifiIncoming {
+  id: string;
+  name: string;
+  size: number;
+  received: number;
+  saved_as: string | null;
+}
+
+export interface WifiOutgoing {
+  id: number;
+  name: string;
+  path: string;
+  size: number;
+  kind: "image" | "video" | "file";
+  sent_bytes: number;
+}
+
+export interface WifiStatus {
+  running: boolean;
+  lan_ip: string | null;
+  url: string | null;
+  folder: string | null;
+  phone: WifiPhone | null;
+  incoming: WifiIncoming[];
+  outgoing: WifiOutgoing[];
+  received_total: number;
+  sent_total: number;
+  stop_reason: string | null;
+}

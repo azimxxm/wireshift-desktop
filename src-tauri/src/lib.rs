@@ -1,5 +1,6 @@
 pub mod device;
 mod media_protocol;
+mod wifi;
 
 use device::{Bridge, ConnectedDevice, DeviceDetector, FileExporter, FileImporter};
 
@@ -199,6 +200,54 @@ async fn clear_thumbnail_cache() -> Result<(), String> {
     Ok(())
 }
 
+/// Wi-Fi transfer: start the LAN server, files from the phone go to export_dir/folder_name
+#[tauri::command]
+async fn wifi_start(export_dir: String, folder_name: String) -> Result<wifi::WifiInfo, String> {
+    let dir = if export_dir.trim().is_empty() { FileExporter::default_export_dir() } else { export_dir };
+    wifi::start(FileExporter::resolve_path(&dir), &folder_name).await
+}
+
+#[tauri::command]
+async fn wifi_stop() -> Result<(), String> {
+    wifi::stop(None);
+    Ok(())
+}
+
+#[tauri::command]
+async fn wifi_info() -> Result<Option<wifi::WifiInfo>, String> {
+    Ok(wifi::info())
+}
+
+#[tauri::command]
+async fn wifi_status() -> Result<wifi::WifiStatus, String> {
+    Ok(wifi::status())
+}
+
+#[tauri::command]
+async fn wifi_add_outgoing(paths: Vec<String>) -> Result<Vec<wifi::OutgoingView>, String> {
+    tokio::task::spawn_blocking(move || wifi::add_outgoing(&paths))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn wifi_remove_outgoing(id: u32) -> Result<(), String> {
+    wifi::remove_outgoing(id);
+    Ok(())
+}
+
+/// Photo/video preview for the Wi-Fi page lists ("in-<id>" or "out-<n>")
+#[tauri::command]
+async fn wifi_thumbnail(key: String) -> Result<String, String> {
+    wifi::preview(&key).await
+}
+
+#[tauri::command]
+async fn wifi_clear_outgoing() -> Result<(), String> {
+    wifi::clear_outgoing();
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     Bridge::init_environment();
@@ -214,6 +263,7 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed = event {
                 FileExporter::cancel_export();
                 FileImporter::cancel();
+                wifi::stop(None);
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -238,7 +288,15 @@ pub fn run() {
             inspect_local_paths,
             import_to_iphone,
             get_import_progress,
-            cancel_import
+            cancel_import,
+            wifi_start,
+            wifi_stop,
+            wifi_info,
+            wifi_status,
+            wifi_add_outgoing,
+            wifi_remove_outgoing,
+            wifi_clear_outgoing,
+            wifi_thumbnail
         ])
         .run(tauri::generate_context!())
         .expect("error while running WireShift desktop application");

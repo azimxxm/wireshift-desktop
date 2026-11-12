@@ -166,7 +166,7 @@ fn sanitize_folder(raw: &str) -> Result<String, String> {
 }
 
 /// Regular files under `path` (or `path` itself), hidden files like .DS_Store skipped.
-fn collect_files(path: &Path) -> Vec<(PathBuf, u64)> {
+pub(crate) fn collect_files(path: &Path) -> Vec<(PathBuf, u64)> {
     let hidden = path.file_name().map(|n| n.to_string_lossy().starts_with('.')).unwrap_or(false);
     if hidden {
         return Vec::new();

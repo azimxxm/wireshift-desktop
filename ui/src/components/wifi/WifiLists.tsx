@@ -1,0 +1,205 @@
+import React, { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  CheckCircle2,
+  File as FileIcon,
+  FileImage,
+  FilePlus2,
+  FileVideo,
+  FolderPlus,
+  Send,
+  X,
+} from "lucide-react";
+import { WifiIncoming, WifiOutgoing } from "../../types";
+import { formatBytes } from "../../utils/format";
+
+const VIDEO_EXT = ["mov", "mp4", "m4v", "hevc", "avi", "mkv"];
+const PHOTO_EXT = ["jpg", "jpeg", "heic", "heif", "png", "gif", "webp", "tif", "tiff", "dng"];
+const kindOf = (name: string) => {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return VIDEO_EXT.includes(ext) ? "video" : PHOTO_EXT.includes(ext) ? "image" : "file";
+};
+
+/** previews survive page switches; "" = Quick Look had nothing */
+const thumbCache = new Map<string, string>();
+
+const Thumb: React.FC<{ previewKey: string | null; name: string }> = ({ previewKey, name }) => {
+  const kind = kindOf(name);
+  const [src, setSrc] = useState(() => (previewKey ? thumbCache.get(previewKey) : undefined));
+  useEffect(() => {
+    if (!previewKey || kind === "file" || thumbCache.has(previewKey)) return;
+    let alive = true;
+    invoke<string>("wifi_thumbnail", { key: previewKey })
+      .then((url) => {
+        thumbCache.set(previewKey, url);
+        if (alive) setSrc(url);
+      })
+      .catch(() => thumbCache.set(previewKey, ""));
+    return () => {
+      alive = false;
+    };
+  }, [previewKey, kind]);
+  if (src) return <img src={src} alt="" className="ws-wifi-thumb" draggable={false} />;
+  const Icon = kind === "video" ? FileVideo : kind === "image" ? FileImage : FileIcon;
+  return (
+    <span className="ws-wifi-thumb">
+      <Icon className="w-4 h-4 text-[var(--ws-label-2)]" />
+    </span>
+  );
+};
+
+const Progress: React.FC<{ percent: number; done: boolean }> = ({ percent, done }) => (
+  <div className={`ws-progress ws-wifi-bar ${done ? "is-done" : ""}`}>
+    <div style={{ width: `${done ? 100 : Math.max(percent, 1)}%` }} />
+  </div>
+);
+
+const IncomingRow: React.FC<{ item: WifiIncoming }> = ({ item }) => {
+  const done = !!item.saved_as;
+  const percent = item.size ? Math.floor((item.received / item.size) * 100) : 100;
+  return (
+    <div className="ws-row ws-wifi-fade">
+      <Thumb previewKey={done ? `in-${item.id}` : null} name={item.name} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[13px] truncate">{item.saved_as ?? item.name}</span>
+          <span className="text-[12px] tabular-nums text-[var(--ws-label-2)] shrink-0">
+            {done ? formatBytes(item.size) : `${formatBytes(item.received)} / ${formatBytes(item.size)}`}
+          </span>
+        </div>
+        <Progress percent={percent} done={done} />
+      </div>
+      <span className="w-[72px] shrink-0 text-right text-[12px] tabular-nums">
+        {done ? (
+          <span className="inline-flex items-center gap-1 text-[var(--ws-green)]">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Saqlandi
+          </span>
+        ) : (
+          <span className="text-white">{percent}%</span>
+        )}
+      </span>
+    </div>
+  );
+};
+
+/** Files arriving from the phone, newest last, with per-file progress. */
+export const IncomingList: React.FC<{ items: WifiIncoming[]; running: boolean }> = ({ items, running }) => {
+  if (!running && items.length === 0) return null;
+  const saved = items.filter((i) => i.saved_as).length;
+  return (
+    <section>
+      <div className="ws-section-title flex justify-between">
+        <span>Telefondan kelgan fayllar</span>
+        {items.length > 0 && (
+          <span className="tabular-nums">
+            {saved} / {items.length} ta saqlandi
+          </span>
+        )}
+      </div>
+      <div className="ws-group">
+        {items.length === 0 ? (
+          <p className="px-4 py-5 text-center text-[12px] text-[var(--ws-label-2)]">
+            Hali fayl kelmadi — telefonda «Mac'ga yuborish»ni bosing.
+          </p>
+        ) : (
+          <div className="max-h-[320px] overflow-y-auto">
+            {items.map((i) => (
+              <IncomingRow key={i.id} item={i} />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const OutgoingRow: React.FC<{ item: WifiOutgoing; onRemove: () => void }> = ({ item, onRemove }) => {
+  const sent = item.sent_bytes;
+  const status =
+    sent >= item.size && item.size > 0
+      ? "Telefonga yuklandi"
+      : sent > 0
+        ? `${Math.min(99, Math.floor((sent / item.size) * 100))}% yuklanmoqda`
+        : formatBytes(item.size);
+  return (
+    <div className="ws-row">
+      <Thumb previewKey={item.kind === "file" ? null : `out-${item.id}`} name={item.name} />
+      <span className="flex-1 min-w-0 text-[13px] truncate" title={item.path}>
+        {item.name}
+      </span>
+      <span
+        className={`text-[12px] tabular-nums shrink-0 ${sent >= item.size && item.size > 0 ? "text-[var(--ws-green)]" : "text-[var(--ws-label-2)]"}`}
+      >
+        {status}
+      </span>
+      <button className="ws-icon-btn !w-5 !h-5 shrink-0" title="Ro'yxatdan olib tashlash" onClick={onRemove}>
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+};
+
+interface OutgoingProps {
+  items: WifiOutgoing[];
+  isDragOver: boolean;
+  onPickFiles: () => void;
+  onPickFolder: () => void;
+  onRemove: (id: number) => void;
+  onClear: () => void;
+}
+
+/** "Telefonga yuborish ro'yxati": a drop zone; the phone page lists these files. */
+export const OutgoingList: React.FC<OutgoingProps> = ({
+  items,
+  isDragOver,
+  onPickFiles,
+  onPickFolder,
+  onRemove,
+  onClear,
+}) => {
+  const total = items.reduce((a, i) => a + i.size, 0);
+  return (
+    <section>
+      <div className="ws-section-title">Telefonga yuborish ro'yxati</div>
+      <div className={`ws-group ws-wifi-drop ${isDragOver ? "is-over" : ""}`}>
+        {items.length === 0 ? (
+          <div className="px-4 py-8 flex flex-col items-center text-center">
+            <Send className="ws-wifi-drop-icon w-7 h-7 text-[var(--ws-label-3)] mb-2" strokeWidth={1.4} />
+            <p className="text-[13px] font-medium text-white">
+              {isDragOver ? "Qo'yib yuboring" : "Video va rasmlarni shu yerga torting"}
+            </p>
+            <p className="text-[12px] text-[var(--ws-label-2)] mt-0.5">
+              Telefon sahifasidagi «Mac'dan olish» bo'limida darhol paydo bo'ladi
+            </p>
+          </div>
+        ) : (
+          <div className="max-h-[280px] overflow-y-auto">
+            {items.map((i) => (
+              <OutgoingRow key={i.id} item={i} onRemove={() => onRemove(i.id)} />
+            ))}
+          </div>
+        )}
+        <div className="ws-row">
+          <div className="flex items-center gap-1.5">
+            <button className="ws-btn inline-flex items-center gap-1.5" onClick={onPickFiles}>
+              <FilePlus2 className="w-3.5 h-3.5" /> Fayl qo'shish…
+            </button>
+            <button className="ws-btn inline-flex items-center gap-1.5" onClick={onPickFolder}>
+              <FolderPlus className="w-3.5 h-3.5" /> Papka qo'shish…
+            </button>
+          </div>
+          {items.length > 0 && (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[12px] text-[var(--ws-label-2)] tabular-nums">
+                {items.length} ta · {formatBytes(total)}
+              </span>
+              <button className="ws-link text-[12px]" onClick={onClear}>
+                Tozalash
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+};
