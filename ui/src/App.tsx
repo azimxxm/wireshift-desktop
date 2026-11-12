@@ -8,6 +8,7 @@ import { CableSpeedView } from "./components/CableSpeedView";
 import { DiagnosticsView } from "./components/DiagnosticsView";
 import { SettingsView } from "./components/SettingsView";
 import { AboutModal } from "./components/AboutModal";
+import { ImportView, ImportBusyState } from "./components/ImportView";
 import {
   ConnectedDevice,
   SystemStatus,
@@ -53,6 +54,15 @@ export function App() {
   const [totalCount, setTotalCount] = useState(0);
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
 
+  // Mac -> iPhone import (state lives in ImportView, this mirrors it for the sidebar)
+  const [importBusy, setImportBusy] = useState<ImportBusyState>({
+    active: false,
+    progress: 0,
+    label: "",
+  });
+  const isImportingRef = useRef(false);
+  isImportingRef.current = importBusy.active;
+
   const refreshDevices = async () => {
     setIsRefreshing(true);
     try {
@@ -81,7 +91,8 @@ export function App() {
 
     // Poll every 3 s; keep the same array reference when nothing changed (no re-render)
     const interval = setInterval(async () => {
-      if (isExportingRef.current) return; // avoid USB contention while copying
+      // avoid USB contention while copying
+      if (isExportingRef.current || isImportingRef.current) return;
       try {
         const list = await invoke<ConnectedDevice[]>("get_connected_devices");
         setDevices((prev) => {
@@ -146,15 +157,16 @@ export function App() {
     setExportResult(null);
   }, [sourceDevice?.udid]);
 
-  // ⌘1-4 pages, ⌘, settings, ⌘R rescan
+  // ⌘1-5 pages, ⌘, settings, ⌘R rescan
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.metaKey || e.altKey || e.ctrlKey) return;
       const tabs: Record<string, TabId> = {
         "1": "transfer",
-        "2": "media",
-        "3": "cable",
-        "4": "diagnostics",
+        "2": "import",
+        "3": "media",
+        "4": "cable",
+        "5": "diagnostics",
         ",": "settings",
       };
       if (tabs[e.key]) {
@@ -361,10 +373,15 @@ export function App() {
         devices={devices}
         activeUdid={sourceDevice?.udid}
         onSelectDevice={setSourceUdid}
-        isMigrating={isExporting}
-        progress={progress}
-        progressLabel={progressLabel}
-        onCancel={handleCancelExport}
+        isMigrating={isExporting || importBusy.active}
+        progress={importBusy.active ? importBusy.progress : progress}
+        progressLabel={importBusy.active ? importBusy.label : progressLabel}
+        onCancel={
+          importBusy.active
+            ? () => invoke("cancel_import").catch(console.debug)
+            : handleCancelExport
+        }
+        progressTab={importBusy.active ? "import" : "transfer"}
       />
 
       <main className="ws-main flex-1 min-w-0 flex flex-col">
@@ -394,6 +411,23 @@ export function App() {
             onOpenCableSpeed={() => setCurrentTab("cable")}
           />
         )}
+
+        {/* always mounted: an import keeps running while you look at other pages */}
+        <div
+          className={
+            currentTab === "import" ? "flex-1 min-h-0 flex flex-col" : "hidden"
+          }
+        >
+          <ImportView
+            device={sourceDevice}
+            devices={devices}
+            onSelectDevice={setSourceUdid}
+            isVisible={currentTab === "import"}
+            preferredApp={settings.importApp}
+            onPreferredAppChange={(v) => updateSetting("importApp", v)}
+            onBusyChange={setImportBusy}
+          />
+        </div>
 
         {currentTab === "media" && (
           <MediaExplorer

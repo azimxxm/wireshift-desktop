@@ -1,7 +1,7 @@
 pub mod device;
 mod media_protocol;
 
-use device::{Bridge, ConnectedDevice, DeviceDetector, FileExporter};
+use device::{Bridge, ConnectedDevice, DeviceDetector, FileExporter, FileImporter};
 
 #[tauri::command]
 async fn get_connected_devices() -> Result<Vec<ConnectedDevice>, String> {
@@ -67,6 +67,44 @@ async fn get_export_progress(destination_dir: String) -> Result<serde_json::Valu
 #[tauri::command]
 async fn cancel_export() -> Result<(), String> {
     FileExporter::cancel_export();
+    Ok(())
+}
+
+/// Apps on the phone that accept files from the Mac (Mac -> iPhone target)
+#[tauri::command]
+async fn list_shared_apps(udid: String) -> Result<Vec<device::native::SharedApp>, String> {
+    tokio::task::spawn_blocking(move || device::native::list_shared_apps(&udid))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn inspect_local_paths(paths: Vec<String>) -> Result<Vec<device::importer::LocalItem>, String> {
+    tokio::task::spawn_blocking(move || FileImporter::inspect_local(&paths))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn import_to_iphone(
+    udid: String,
+    bundle_id: String,
+    folder: String,
+    paths: Vec<String>,
+) -> Result<device::importer::ImportResult, String> {
+    tokio::task::spawn_blocking(move || FileImporter::import(&udid, &bundle_id, &folder, &paths))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn get_import_progress() -> Result<device::importer::ImportProgress, String> {
+    Ok(FileImporter::progress())
+}
+
+#[tauri::command]
+async fn cancel_import() -> Result<(), String> {
+    FileImporter::cancel();
     Ok(())
 }
 
@@ -175,6 +213,7 @@ pub fn run() {
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed = event {
                 FileExporter::cancel_export();
+                FileImporter::cancel();
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -194,7 +233,12 @@ pub fn run() {
             cancel_export,
             titlebar_double_click,
             get_cache_size,
-            clear_thumbnail_cache
+            clear_thumbnail_cache,
+            list_shared_apps,
+            inspect_local_paths,
+            import_to_iphone,
+            get_import_progress,
+            cancel_import
         ])
         .run(tauri::generate_context!())
         .expect("error while running WireShift desktop application");

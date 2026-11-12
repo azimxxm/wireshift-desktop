@@ -9,11 +9,12 @@ import {
   Gauge,
   Smartphone,
   X,
+  Upload,
 } from "lucide-react";
 import { ConnectedDevice } from "../types";
 import { titlebarProps } from "../utils/windowDrag";
 
-export type TabId = "transfer" | "media" | "cable" | "diagnostics" | "settings";
+export type TabId = "transfer" | "import" | "media" | "cable" | "diagnostics" | "settings";
 
 interface SidebarProps {
   currentTab: TabId;
@@ -28,6 +29,8 @@ interface SidebarProps {
   progress: number;
   progressLabel: string;
   onCancel: () => void;
+  /** page the progress card opens when clicked */
+  progressTab: TabId;
 }
 
 const NAV: {
@@ -37,9 +40,10 @@ const NAV: {
   shortcut: string;
 }[] = [
   { id: "transfer", label: "Eksport", icon: ArrowLeftRight, shortcut: "⌘1" },
-  { id: "media", label: "Galereya", icon: Images, shortcut: "⌘2" },
-  { id: "cable", label: "Kabel tezligi", icon: Gauge, shortcut: "⌘3" },
-  { id: "diagnostics", label: "Diagnostika", icon: Activity, shortcut: "⌘4" },
+  { id: "import", label: "iPhone'ga yuborish", icon: Upload, shortcut: "⌘2" },
+  { id: "media", label: "Galereya", icon: Images, shortcut: "⌘3" },
+  { id: "cable", label: "Kabel tezligi", icon: Gauge, shortcut: "⌘4" },
+  { id: "diagnostics", label: "Diagnostika", icon: Activity, shortcut: "⌘5" },
 ];
 
 const SidebarItem: React.FC<{
@@ -81,6 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   progress,
   progressLabel,
   onCancel,
+  progressTab,
 }) => (
   <aside className="w-[220px] shrink-0 flex flex-col border-r border-black/40 bg-black/[0.12]">
     {/* traffic-light zone, drags the window like a real titlebar */}
@@ -152,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="mx-2.5 mb-2 p-2.5 rounded-lg bg-white/[0.06] border border-white/[0.06]">
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <button
-            onClick={() => setCurrentTab("transfer")}
+            onClick={() => setCurrentTab(progressTab)}
             className="text-[12px] font-medium text-white truncate text-left"
           >
             {progressLabel}

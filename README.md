@@ -101,9 +101,13 @@ Ikkinchi yo'l rasm eskizlari keshini o'chiradi. Mac'ga ko'chirilgan rasm va vide
    Mac'da bor fayllar qayta ko'chirilmaydi, rasm tahrirlari (AAE) birga saqlanadi.
 2. 🎞️ **Galereya** — telefondagi rasm va videolarni ko'rish (video telefondan to'g'ridan-to'g'ri o'ynaydi), bittalab tanlab saqlash.
 3. 🔌 **Kabel tezligi** — haqiqiy ulanish tezligi, 64 MB o'qib o'lchash va qaysi kabel qancha tezlik berishi.
-4. 🔍 **Diagnostika** — batareya salomatligi, sikllar, mAh, xotira, model/hudud (masalan J/A), IMEI, SIM va boshqalar.
+4. 📲 **iPhone'ga yuborish (Mac → iPhone)** — video, rasm va fayllarni Mac'dan telefonga kabel orqali yuboradi.
+   Fayllar telefondagi ilova (masalan VLC) papkasiga tushadi: **Files → On My iPhone → ilova → WireShift …**,
+   u yerdan **Select All → Share → Save to Photos**. Finder'dan tortib tashlash ham ishlaydi.
+5. 🔍 **Diagnostika** — batareya salomatligi, sikllar, mAh, xotira, model/hudud (masalan J/A), IMEI, SIM va boshqalar.
 
-Ilova telefondagi fayllarni faqat o'qiydi — hech narsa o'chirilmaydi yoki o'zgartirilmaydi.
+Ilova telefondagi rasm va videolarni faqat o'qiydi — hech narsa o'chirilmaydi yoki o'zgartirilmaydi.
+Yagona yozish — «iPhone'ga yuborish»da tanlangan ilovaning yangi papkasiga fayl qo'shish.
 
 ---
 

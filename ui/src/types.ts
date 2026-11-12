@@ -113,3 +113,33 @@ export interface MediaCatalogSummary {
   other_bytes: number;
   items: MediaItem[];
 }
+
+/** iPhone app that accepts files from the Mac (house_arrest Documents) */
+export interface SharedApp {
+  bundle_id: string;
+  name: string;
+  /** shows up in Files > On My iPhone, so "Save to Photos" works from there */
+  visible_in_files: boolean;
+}
+
+export interface LocalItem {
+  path: string;
+  name: string;
+  is_dir: boolean;
+  file_count: number;
+  size_bytes: number;
+}
+
+export interface ImportProgress {
+  active: boolean;
+  total_files: number;
+  done_files: number;
+  total_bytes: number;
+  done_bytes: number;
+  current_file: string;
+}
+
+export interface ImportResult {
+  copied: number;
+  folder: string;
+}
