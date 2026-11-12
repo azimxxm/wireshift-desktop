@@ -189,6 +189,8 @@ fn preview_source(key: &str) -> Option<PathBuf> {
     Some(shared.dest_dir.join(saved))
 }
 
+const PREVIEW_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(8);
+
 /// Quick Look thumbnail (photos and videos) for the Mac page, as a data: URL
 pub async fn preview(key: &str) -> Result<String, String> {
     use base64::Engine;
@@ -198,15 +200,24 @@ pub async fn preview(key: &str) -> Result<String, String> {
     let out = dir.join(format!("{file_name}.png"));
     if !out.exists() {
         tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
-        tokio::process::Command::new("/usr/bin/qlmanage")
+        // qlmanage can hang forever on a broken video: give up after a few seconds and kill it
+        let child = tokio::process::Command::new("/usr/bin/qlmanage")
             .args(["-t", "-s", "160", "-o"])
             .arg(&dir)
             .arg(&src)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
-            .status()
-            .await
-            .map_err(|e| e.to_string())?;
+            .kill_on_drop(true)
+            .status();
+        match tokio::time::timeout(PREVIEW_TIMEOUT, child).await {
+            Ok(status) => {
+                status.map_err(|e| e.to_string())?;
+            }
+            Err(_) => {
+                tracing::warn!(file = %src.display(), "wifi: quick look preview timed out");
+                return Err("Ko'rinish yo'q".into());
+            }
+        }
     }
     let bytes = tokio::fs::read(&out).await.map_err(|_| "Ko'rinish yo'q".to_string())?;
     Ok(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
@@ -252,5 +263,25 @@ mod e2e {
             super::stop(None);
             tokio::time::sleep(Duration::from_millis(800)).await;
         });
+    }
+}
+
+#[cfg(test)]
+mod preview_timeout {
+    // A process that never ends must be killed by the timeout, not leak (regression: hung qlmanage)
+    #[test]
+    fn hung_child_is_killed_after_timeout() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let pid_alive = rt.block_on(async {
+            let mut cmd = tokio::process::Command::new("/bin/sleep");
+            cmd.arg("600").kill_on_drop(true);
+            let child = cmd.spawn().unwrap();
+            let pid = child.id().unwrap();
+            let waited = tokio::time::timeout(std::time::Duration::from_millis(200), child.wait_with_output()).await;
+            assert!(waited.is_err());
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            std::process::Command::new("kill").args(["-0", &pid.to_string()]).status().unwrap().success()
+        });
+        assert!(!pid_alive, "sleep 600 should be gone after the timeout");
     }
 }
