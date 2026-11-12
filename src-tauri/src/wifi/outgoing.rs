@@ -21,6 +21,24 @@ pub struct Entry {
     pub size: u64,
     pub kind: &'static str,
     pub sent: Arc<AtomicU64>,
+    /// downloads of this file running right now
+    pub active: Arc<AtomicU32>,
+}
+
+/// Counts a running download; dropping it (done, browser X, lost Wi-Fi) ends the count
+pub struct ActiveGuard(Arc<AtomicU32>);
+
+impl ActiveGuard {
+    pub fn new(counter: &Arc<AtomicU32>) -> Self {
+        counter.fetch_add(1, Ordering::Relaxed);
+        Self(counter.clone())
+    }
+}
+
+impl Drop for ActiveGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,6 +49,7 @@ pub struct OutgoingView {
     pub size: u64,
     pub kind: &'static str,
     pub sent_bytes: u64,
+    pub active: u32,
 }
 
 static FILES: Mutex<Vec<Entry>> = Mutex::new(Vec::new());
@@ -65,7 +84,7 @@ pub fn add(paths: &[String]) -> Vec<OutgoingView> {
             }
             let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-            files.push(Entry { id, kind: kind_of(&name), name, path, size, sent: Arc::default() });
+            files.push(Entry { id, kind: kind_of(&name), name, path, size, sent: Arc::default(), active: Arc::default() });
         }
     }
     list()
@@ -93,6 +112,7 @@ pub fn list() -> Vec<OutgoingView> {
             size: f.size,
             kind: f.kind,
             sent_bytes: f.sent.load(Ordering::Relaxed),
+            active: f.active.load(Ordering::Relaxed),
         })
         .collect()
 }

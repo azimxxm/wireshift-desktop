@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  Archive,
   CheckCircle2,
   File as FileIcon,
   FileImage,
@@ -10,7 +11,7 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { WifiIncoming, WifiOutgoing } from "../../types";
+import { WifiIncoming, WifiOutgoing, WifiZip } from "../../types";
 import { formatBytes } from "../../utils/format";
 
 const VIDEO_EXT = ["mov", "mp4", "m4v", "hevc", "avi", "mkv"];
@@ -54,11 +55,16 @@ const Progress: React.FC<{ percent: number; done: boolean }> = ({ percent, done 
   </div>
 );
 
-const IncomingRow: React.FC<{ item: WifiIncoming }> = ({ item }) => {
+const CancelledLabel: React.FC<{ by: "phone" | "mac" }> = ({ by }) => (
+  <span className="text-[var(--ws-label-3)]">{by === "mac" ? "Bekor qilindi" : "Telefonda bekor"}</span>
+);
+
+const IncomingRow: React.FC<{ item: WifiIncoming; onCancel: () => void }> = ({ item, onCancel }) => {
   const done = !!item.saved_as;
+  const cancelled = item.cancelled_by;
   const percent = item.size ? Math.floor((item.received / item.size) * 100) : 100;
   return (
-    <div className="ws-row ws-wifi-fade">
+    <div className={`ws-row ws-wifi-fade ${cancelled ? "opacity-60" : ""}`}>
       <Thumb previewKey={done ? `in-${item.id}` : null} name={item.name} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-3">
@@ -67,15 +73,22 @@ const IncomingRow: React.FC<{ item: WifiIncoming }> = ({ item }) => {
             {done ? formatBytes(item.size) : `${formatBytes(item.received)} / ${formatBytes(item.size)}`}
           </span>
         </div>
-        <Progress percent={percent} done={done} />
+        {!cancelled && <Progress percent={percent} done={done} />}
       </div>
-      <span className="w-[72px] shrink-0 text-right text-[12px] tabular-nums">
+      <span className="w-[96px] shrink-0 text-right text-[12px] tabular-nums">
         {done ? (
           <span className="inline-flex items-center gap-1 text-[var(--ws-green)]">
             <CheckCircle2 className="w-3.5 h-3.5" /> Saqlandi
           </span>
+        ) : cancelled ? (
+          <CancelledLabel by={cancelled} />
         ) : (
-          <span className="text-white">{percent}%</span>
+          <span className="inline-flex items-center gap-2 text-white">
+            {percent}%
+            <button className="ws-icon-btn !w-5 !h-5" title="Bu faylni bekor qilish" onClick={onCancel}>
+              <X className="w-3 h-3" />
+            </button>
+          </span>
         )}
       </span>
     </div>
@@ -83,7 +96,11 @@ const IncomingRow: React.FC<{ item: WifiIncoming }> = ({ item }) => {
 };
 
 /** Files arriving from the phone, newest last, with per-file progress. */
-export const IncomingList: React.FC<{ items: WifiIncoming[]; running: boolean }> = ({ items, running }) => {
+export const IncomingList: React.FC<{
+  items: WifiIncoming[];
+  running: boolean;
+  onCancel: (id: string) => void;
+}> = ({ items, running, onCancel }) => {
   if (!running && items.length === 0) return null;
   const saved = items.filter((i) => i.saved_as).length;
   return (
@@ -104,7 +121,7 @@ export const IncomingList: React.FC<{ items: WifiIncoming[]; running: boolean }>
         ) : (
           <div className="max-h-[320px] overflow-y-auto">
             {items.map((i) => (
-              <IncomingRow key={i.id} item={i} />
+              <IncomingRow key={i.id} item={i} onCancel={() => onCancel(i.id)} />
             ))}
           </div>
         )}
@@ -115,12 +132,15 @@ export const IncomingList: React.FC<{ items: WifiIncoming[]; running: boolean }>
 
 const OutgoingRow: React.FC<{ item: WifiOutgoing; onRemove: () => void }> = ({ item, onRemove }) => {
   const sent = item.sent_bytes;
+  // a download that stopped before the end (browser X, lost Wi-Fi) must not look stuck
   const status =
-    sent >= item.size && item.size > 0
-      ? "Telefonga yuklandi"
-      : sent > 0
-        ? `${Math.min(99, Math.floor((sent / item.size) * 100))}% yuklanmoqda`
-        : formatBytes(item.size);
+    item.active > 0
+      ? `${Math.min(99, Math.floor(((sent % (item.size || 1)) / (item.size || 1)) * 100))}% yuklanmoqda`
+      : sent >= item.size && item.size > 0
+        ? "Telefonga yuklandi"
+        : sent > 0
+          ? "Bekor qilindi"
+          : formatBytes(item.size);
   return (
     <div className="ws-row">
       <Thumb previewKey={item.kind === "file" ? null : `out-${item.id}`} name={item.name} />
@@ -139,8 +159,37 @@ const OutgoingRow: React.FC<{ item: WifiOutgoing; onRemove: () => void }> = ({ i
   );
 };
 
+const ZIP_TEXT: Record<WifiZip["state"], string> = {
+  running: "",
+  done: "Telefonga yuborildi",
+  cancelled: "Bekor qilindi",
+};
+
+const ZipRow: React.FC<{ zip: WifiZip }> = ({ zip }) => {
+  const percent = zip.total ? Math.min(99, Math.floor((zip.sent / zip.total) * 100)) : 0;
+  return (
+    <div className={`ws-row ${zip.state === "cancelled" ? "opacity-60" : ""}`}>
+      <span className="ws-wifi-thumb">
+        <Archive className="w-4 h-4 text-[var(--ws-accent)]" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] truncate">{zip.name}</div>
+        <div className="text-[11px] text-[var(--ws-label-2)] tabular-nums">
+          {zip.files} ta fayl · {formatBytes(zip.total)}
+        </div>
+      </div>
+      <span
+        className={`text-[12px] tabular-nums shrink-0 ${zip.state === "done" ? "text-[var(--ws-green)]" : zip.state === "cancelled" ? "text-[var(--ws-label-3)]" : "text-white"}`}
+      >
+        {zip.state === "running" ? `${percent}% yuklanmoqda` : ZIP_TEXT[zip.state]}
+      </span>
+    </div>
+  );
+};
+
 interface OutgoingProps {
   items: WifiOutgoing[];
+  zips: WifiZip[];
   isDragOver: boolean;
   onPickFiles: () => void;
   onPickFolder: () => void;
@@ -151,6 +200,7 @@ interface OutgoingProps {
 /** "Telefonga yuborish ro'yxati": a drop zone; the phone page lists these files. */
 export const OutgoingList: React.FC<OutgoingProps> = ({
   items,
+  zips,
   isDragOver,
   onPickFiles,
   onPickFolder,
@@ -174,6 +224,9 @@ export const OutgoingList: React.FC<OutgoingProps> = ({
           </div>
         ) : (
           <div className="max-h-[280px] overflow-y-auto">
+            {zips.map((z, n) => (
+              <ZipRow key={`${z.name}-${n}`} zip={z} />
+            ))}
             {items.map((i) => (
               <OutgoingRow key={i.id} item={i} onRemove={() => onRemove(i.id)} />
             ))}

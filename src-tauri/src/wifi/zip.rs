@@ -12,7 +12,8 @@ use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
-use super::state::Shared;
+use super::outgoing::ActiveGuard;
+use super::state::{Shared, ZipJob, ZipState};
 
 const U32_MAX: u64 = 0xFFFF_FFFF;
 const LOCAL_LEN: u64 = 30;
@@ -32,6 +33,7 @@ pub struct ZipItem {
     /// unix seconds
     pub modified: u64,
     pub sent: Arc<AtomicU64>,
+    pub active: Arc<std::sync::atomic::AtomicU32>,
 }
 
 struct Written {
@@ -174,11 +176,18 @@ async fn crc_of(it: &ZipItem) -> std::io::Result<u32> {
 }
 
 /// Sends the file bytes; false when the phone went away or the server stopped
-async fn send_data(it: &ZipItem, tx: &Sender<std::io::Result<Bytes>>, shared: &Shared, cancel: &CancellationToken) -> std::io::Result<bool> {
+struct Ctx<'a> {
+    tx: &'a Sender<std::io::Result<Bytes>>,
+    shared: &'a Shared,
+    job: &'a ZipJob,
+    cancel: &'a CancellationToken,
+}
+
+async fn send_data(it: &ZipItem, c: &Ctx<'_>) -> std::io::Result<bool> {
     let mut f = tokio::fs::File::open(&it.path).await?.take(it.size);
     let mut total = 0u64;
     loop {
-        if cancel.is_cancelled() {
+        if c.cancel.is_cancelled() {
             return Err(std::io::Error::other("wifi server stopped"));
         }
         let mut buf = vec![0u8; READ_BUF];
@@ -188,11 +197,12 @@ async fn send_data(it: &ZipItem, tx: &Sender<std::io::Result<Bytes>>, shared: &S
         }
         buf.truncate(n);
         total += n as u64;
-        if tx.send(Ok(Bytes::from(buf))).await.is_err() {
+        if c.tx.send(Ok(Bytes::from(buf))).await.is_err() {
             return Ok(false);
         }
         it.sent.fetch_add(n as u64, Ordering::Relaxed);
-        shared.add_sent(n as u64);
+        c.job.sent.fetch_add(n as u64, Ordering::Relaxed);
+        c.shared.add_sent(n as u64);
     }
     if total != it.size {
         return Err(short_read(&it.name));
@@ -200,7 +210,8 @@ async fn send_data(it: &ZipItem, tx: &Sender<std::io::Result<Bytes>>, shared: &S
     Ok(true)
 }
 
-async fn write_all(items: &[ZipItem], tx: &Sender<std::io::Result<Bytes>>, shared: &Shared, cancel: &CancellationToken) -> std::io::Result<()> {
+/// Ok(true) = whole archive sent, Ok(false) = the phone closed the download
+async fn write_all(items: &[ZipItem], c: &Ctx<'_>) -> std::io::Result<bool> {
     let mut written = Vec::with_capacity(items.len());
     let mut offset = 0u64;
     for it in items {
@@ -208,22 +219,39 @@ async fn write_all(items: &[ZipItem], tx: &Sender<std::io::Result<Bytes>>, share
         let dos = dos_datetime(it.modified);
         let header = local_header(&it.name, it.size, crc, dos);
         let header_len = header.len() as u64;
-        if tx.send(Ok(Bytes::from(header))).await.is_err() || !send_data(it, tx, shared, cancel).await? {
-            return Ok(()); // the phone cancelled
+        c.job.sent.fetch_add(header_len, Ordering::Relaxed);
+        if c.tx.send(Ok(Bytes::from(header))).await.is_err() || !send_data(it, c).await? {
+            return Ok(false);
         }
         written.push(Written { name: it.name.clone(), size: it.size, crc, offset, dos });
         offset += header_len + it.size;
     }
-    let _ = tx.send(Ok(Bytes::from(central_directory(&written, offset)))).await;
-    Ok(())
+    let tail = central_directory(&written, offset);
+    c.job.sent.fetch_add(tail.len() as u64, Ordering::Relaxed);
+    Ok(c.tx.send(Ok(Bytes::from(tail))).await.is_ok())
 }
 
 /// Streams the archive into `tx`; an error aborts the response so the phone sees a failed download
-pub async fn stream(items: Vec<ZipItem>, tx: Sender<std::io::Result<Bytes>>, shared: Arc<Shared>, cancel: CancellationToken) {
-    if let Err(e) = write_all(&items, &tx, &shared, &cancel).await {
-        tracing::warn!(error = %e, "wifi: zip stream aborted");
-        let _ = tx.send(Err(e)).await;
-    }
+/// The Mac page shows the result: sent, or cancelled when the phone dropped it.
+pub async fn stream(
+    items: Vec<ZipItem>,
+    tx: Sender<std::io::Result<Bytes>>,
+    shared: Arc<Shared>,
+    job: Arc<ZipJob>,
+    cancel: CancellationToken,
+) {
+    let _active: Vec<ActiveGuard> = items.iter().map(|i| ActiveGuard::new(&i.active)).collect();
+    let c = Ctx { tx: &tx, shared: &shared, job: &job, cancel: &cancel };
+    let finished = match write_all(&items, &c).await {
+        Ok(done) => done,
+        Err(e) => {
+            tracing::warn!(error = %e, "wifi: zip stream aborted");
+            let _ = tx.send(Err(e)).await;
+            false
+        }
+    };
+    // the phone may still drop the last bytes in flight; "done" means everything was handed over
+    *super::lock(&job.state) = if finished { ZipState::Done } else { ZipState::Cancelled };
 }
 
 #[cfg(test)]
@@ -233,7 +261,7 @@ mod tests {
     fn item(dir: &std::path::Path, name: &str, data: &[u8]) -> ZipItem {
         let path = dir.join(name);
         std::fs::write(&path, data).unwrap();
-        ZipItem { name: name.into(), path, size: data.len() as u64, modified: 1_731_400_000, sent: Arc::default() }
+        ZipItem { name: name.into(), path, size: data.len() as u64, modified: 1_731_400_000, sent: Arc::default(), active: Arc::default() }
     }
 
     #[test]
@@ -249,8 +277,8 @@ mod tests {
 
     #[test]
     fn zip64_sizes_are_counted() {
-        let small = ZipItem { name: "a.mov".into(), path: PathBuf::new(), size: 10, modified: 0, sent: Arc::default() };
-        let big = ZipItem { name: "b.mov".into(), path: PathBuf::new(), size: 5 << 30, modified: 0, sent: Arc::default() };
+        let small = ZipItem { name: "a.mov".into(), path: PathBuf::new(), size: 10, modified: 0, sent: Arc::default(), active: Arc::default() };
+        let big = ZipItem { name: "b.mov".into(), path: PathBuf::new(), size: 5 << 30, modified: 0, sent: Arc::default(), active: Arc::default() };
         assert_eq!(total_len(&[small]), 30 + 5 + 10 + 46 + 5 + 22);
         let expect = (30 + 5 + 20 + (5u64 << 30)) + (46 + 5 + 28) + END64_LEN + 22;
         assert_eq!(total_len(&[big]), expect);
@@ -264,9 +292,11 @@ mod tests {
         let items = vec![item(&dir, "Sayr – Toshkent.heic", &data), item(&dir, "bo'sh.txt", b"")];
         let expected = total_len(&items);
         let shared = Arc::new(Shared::new(super::super::state::new_token().unwrap(), dir.join("unused")));
+        let job = shared.add_zip("t.zip".into(), items.len(), expected);
+        let probe = shared.clone();
         let bytes = tauri::async_runtime::block_on(async move {
             let (tx, mut rx) = tokio::sync::mpsc::channel(4);
-            tokio::spawn(stream(items, tx, shared, CancellationToken::new()));
+            tokio::spawn(stream(items, tx, shared, job, CancellationToken::new()));
             let mut out = Vec::new();
             while let Some(chunk) = rx.recv().await {
                 out.extend_from_slice(&chunk.unwrap());
@@ -274,10 +304,33 @@ mod tests {
             out
         });
         assert_eq!(bytes.len() as u64, expected);
+        let view = &probe.zips()[0];
+        assert_eq!((view.state, view.sent), (ZipState::Done, expected));
         let zip = dir.join("out.zip");
         std::fs::write(&zip, &bytes).unwrap();
         let ok = std::process::Command::new("/usr/bin/unzip").arg("-tq").arg(&zip).status().unwrap();
         assert!(ok.success(), "unzip -t failed");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn dropped_download_is_marked_cancelled() {
+        let dir = std::env::temp_dir().join(format!("ws-zip-drop-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let items = vec![item(&dir, "a.bin", &vec![7u8; 3 * READ_BUF])];
+        let active = items[0].active.clone();
+        let shared = Arc::new(Shared::new(super::super::state::new_token().unwrap(), dir.join("unused")));
+        let job = shared.add_zip("t.zip".into(), 1, total_len(&items));
+        let probe = shared.clone();
+        tauri::async_runtime::block_on(async move {
+            let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+            let task = tokio::spawn(stream(items, tx, shared, job, CancellationToken::new()));
+            let _ = rx.recv().await; // phone reads the header, then closes the download
+            drop(rx);
+            task.await.unwrap();
+        });
+        assert_eq!(probe.zips()[0].state, ZipState::Cancelled);
+        assert_eq!(active.load(Ordering::Relaxed), 0, "download no longer counted as running");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

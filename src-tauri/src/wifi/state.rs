@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 
 use super::lock;
-use super::upload::Upload;
+use super::upload::{CancelBy, Upload};
 
 /// The phone counts as connected while it polled within this window
 const PHONE_SEEN_WINDOW_MS: u64 = 8_000;
@@ -34,6 +34,34 @@ pub struct IncomingView {
     pub size: u64,
     pub received: u64,
     pub saved_as: Option<String>,
+    pub cancelled_by: Option<CancelBy>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ZipState {
+    Running,
+    Done,
+    /// the phone closed the download (browser X, lost Wi-Fi) or the server stopped
+    Cancelled,
+}
+
+/// One bulk .zip download, shown on the Mac page
+pub struct ZipJob {
+    pub name: String,
+    pub files: usize,
+    pub total: u64,
+    pub sent: AtomicU64,
+    pub state: Mutex<ZipState>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ZipView {
+    pub name: String,
+    pub files: usize,
+    pub total: u64,
+    pub sent: u64,
+    pub state: ZipState,
 }
 
 pub struct Shared {
@@ -44,6 +72,7 @@ pub struct Shared {
     pub uploads: Mutex<Vec<Arc<Upload>>>,
     /// one finish at a time, so two files never pick the same free name
     pub finish_lock: Mutex<()>,
+    zips: Mutex<Vec<Arc<ZipJob>>>,
     started: Instant,
     last_seen_ms: AtomicU64,
     phone: Mutex<Option<Phone>>,
@@ -80,6 +109,7 @@ impl Shared {
             thumbs_dir,
             uploads: Mutex::new(Vec::new()),
             finish_lock: Mutex::new(()),
+            zips: Mutex::new(Vec::new()),
             started: Instant::now(),
             last_seen_ms: AtomicU64::new(0),
             phone: Mutex::new(None),
@@ -128,6 +158,30 @@ impl Shared {
             label: p.label.clone(),
             connected: now.saturating_sub(p.seen_ms) < PHONE_SEEN_WINDOW_MS,
         })
+    }
+
+    /// Uploads the Mac stopped, so the phone can abort chunks already in flight
+    pub fn cancelled_by_mac(&self) -> Vec<String> {
+        lock(&self.uploads).iter().filter(|u| u.cancelled_by() == Some(CancelBy::Mac)).map(|u| u.id.clone()).collect()
+    }
+
+    pub fn add_zip(&self, name: String, files: usize, total: u64) -> Arc<ZipJob> {
+        let job = Arc::new(ZipJob { name, files, total, sent: AtomicU64::new(0), state: Mutex::new(ZipState::Running) });
+        lock(&self.zips).push(job.clone());
+        job
+    }
+
+    pub fn zips(&self) -> Vec<ZipView> {
+        lock(&self.zips)
+            .iter()
+            .map(|z| ZipView {
+                name: z.name.clone(),
+                files: z.files,
+                total: z.total,
+                sent: z.sent.load(Ordering::Relaxed),
+                state: *lock(&z.state),
+            })
+            .collect()
     }
 
     pub fn incoming(&self) -> Vec<IncomingView> {

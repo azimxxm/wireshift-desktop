@@ -165,6 +165,7 @@ export interface WifiIncoming {
   size: number;
   received: number;
   saved_as: string | null;
+  cancelled_by: "phone" | "mac" | null;
 }
 
 export interface WifiOutgoing {
@@ -174,6 +175,16 @@ export interface WifiOutgoing {
   size: number;
   kind: "image" | "video" | "file";
   sent_bytes: number;
+  /** downloads of this file running right now */
+  active: number;
+}
+
+export interface WifiZip {
+  name: string;
+  files: number;
+  total: number;
+  sent: number;
+  state: "running" | "done" | "cancelled";
 }
 
 export interface WifiStatus {
@@ -184,6 +195,7 @@ export interface WifiStatus {
   phone: WifiPhone | null;
   incoming: WifiIncoming[];
   outgoing: WifiOutgoing[];
+  zips: WifiZip[];
   received_total: number;
   sent_total: number;
   stop_reason: string | null;

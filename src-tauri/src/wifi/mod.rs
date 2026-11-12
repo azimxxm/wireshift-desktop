@@ -20,7 +20,7 @@ use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
 pub use outgoing::OutgoingView;
-use state::{IncomingView, PhoneView, Shared};
+use state::{IncomingView, PhoneView, Shared, ZipView};
 
 /// No request (and no bytes moving) for this long -> the server turns itself off
 const IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60);
@@ -43,6 +43,7 @@ pub struct WifiStatus {
     pub phone: Option<PhoneView>,
     pub incoming: Vec<IncomingView>,
     pub outgoing: Vec<OutgoingView>,
+    pub zips: Vec<ZipView>,
     pub received_total: u64,
     pub sent_total: u64,
     pub stop_reason: Option<String>,
@@ -147,10 +148,18 @@ pub fn status() -> WifiStatus {
         phone: shared.as_ref().and_then(|s| s.phone()),
         incoming: shared.as_ref().map(|s| s.incoming()).unwrap_or_default(),
         outgoing: outgoing::list(),
+        zips: shared.as_ref().map(|s| s.zips()).unwrap_or_default(),
         received_total,
         sent_total,
         stop_reason: reason,
     }
+}
+
+/// The Mac page's ✕ on an incoming file: the phone gets a 410 and stops
+pub fn cancel_upload(id: &str) -> Result<(), String> {
+    let shared = lock(&SERVER).as_ref().map(|r| r.shared.clone()).ok_or("Wi-Fi ulanish o'chiq")?;
+    let up = shared.find_upload(id).ok_or("Bu fayl topilmadi")?;
+    up.cancel(upload::CancelBy::Mac).map_err(|e| e.1)
 }
 
 pub fn add_outgoing(paths: &[String]) -> Vec<OutgoingView> {
@@ -218,10 +227,28 @@ mod e2e {
         if let Ok(out) = std::env::var("WS_E2E_OUT") {
             super::add_outgoing(&out.split(':').map(String::from).collect::<Vec<_>>());
         }
+        // WS_E2E_CTL: a file the test writes an upload id into = the Mac page's ✕
+        let ctl = std::env::var("WS_E2E_CTL").ok();
         tauri::async_runtime::block_on(async move {
             let info = super::start(dir.into(), "Wi-Fi e2e").await.expect("server start");
             println!("WS_E2E_URL={}", info.url);
-            tokio::time::sleep(Duration::from_secs(secs)).await;
+            let deadline = std::time::Instant::now() + Duration::from_secs(secs);
+            while std::time::Instant::now() < deadline {
+                tokio::time::sleep(Duration::from_millis(150)).await;
+                if let Some(p) = &ctl {
+                    let _ = std::fs::write(format!("{p}.status.json"), serde_json::to_string(&super::status()).unwrap_or_default());
+                }
+                let Some(cmd) = ctl.as_ref().and_then(|p| std::fs::read_to_string(p).ok()) else { continue };
+                let _ = std::fs::remove_file(ctl.as_ref().unwrap());
+                if cmd.trim() == "STOP" {
+                    super::stop(None); // the Mac page's global "To'xtatish"
+                    println!("WS_E2E_MAC_STOP");
+                    tokio::time::sleep(Duration::from_millis(1500)).await;
+                    break;
+                }
+                println!("WS_E2E_MAC_CANCEL {} -> {:?}", cmd.trim(), super::cancel_upload(cmd.trim()));
+            }
+            println!("WS_E2E_STATUS={}", serde_json::to_string(&super::status()).unwrap_or_default());
             super::stop(None);
             tokio::time::sleep(Duration::from_millis(800)).await;
         });

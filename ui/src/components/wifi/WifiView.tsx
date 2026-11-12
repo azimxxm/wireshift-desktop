@@ -144,9 +144,14 @@ export const WifiView: React.FC<WifiViewProps> = ({ exportPath }) => {
           {(status?.phone?.connected || hasTraffic) && status && (
             <WifiSpeed speeds={speeds} received={status.received_total} sent={status.sent_total} />
           )}
-          <IncomingList items={status?.incoming ?? []} running={running} />
+          <IncomingList
+            items={status?.incoming ?? []}
+            running={running}
+            onCancel={(id) => callAndRefresh("wifi_cancel_upload", { id })}
+          />
           <OutgoingList
             items={status?.outgoing ?? []}
+            zips={status?.zips ?? []}
             isDragOver={isDragOver}
             onPickFiles={() => pick(false)}
             onPickFolder={() => pick(true)}

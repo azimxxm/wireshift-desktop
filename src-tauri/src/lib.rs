@@ -242,6 +242,12 @@ async fn wifi_thumbnail(key: String) -> Result<String, String> {
     wifi::preview(&key).await
 }
 
+/// ✕ on an incoming row: stop that upload, the phone sees "Mac bekor qildi"
+#[tauri::command]
+async fn wifi_cancel_upload(id: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || wifi::cancel_upload(&id)).await.map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn wifi_clear_outgoing() -> Result<(), String> {
     wifi::clear_outgoing();
@@ -296,7 +302,8 @@ pub fn run() {
             wifi_add_outgoing,
             wifi_remove_outgoing,
             wifi_clear_outgoing,
-            wifi_thumbnail
+            wifi_thumbnail,
+            wifi_cancel_upload
         ])
         .run(tauri::generate_context!())
         .expect("error while running WireShift desktop application");

@@ -13,7 +13,7 @@
 :root{
   --bg:#000;--card:#1c1c1e;--card2:#2c2c2e;--fill:rgba(118,118,128,.24);--line:rgba(84,84,88,.6);
   --t:#fff;--t2:rgba(235,235,245,.6);--t3:rgba(235,235,245,.3);
-  --acc:#0a84ff;--acc-soft:rgba(10,132,255,.18);--ok:#30d158;--ok-soft:rgba(48,209,88,.18);--err:#ff453a;
+  --acc:#0a84ff;--acc-soft:rgba(10,132,255,.18);--warn:#ff9f0a;--ok:#30d158;--ok-soft:rgba(48,209,88,.18);--err:#ff453a;
   --bar:rgba(0,0,0,.72);--seg:rgba(118,118,128,.24);--seg-on:#636366;
   --spring:cubic-bezier(.3,1.5,.5,1);--ease:cubic-bezier(.2,.8,.2,1);
   --num:ui-rounded,-apple-system,"SF Pro Rounded",system-ui,sans-serif;
@@ -21,7 +21,7 @@
 @media (prefers-color-scheme: light){:root{
   --bg:#f2f2f7;--card:#fff;--card2:#e5e5ea;--fill:rgba(120,120,128,.16);--line:rgba(60,60,67,.18);
   --t:#000;--t2:rgba(60,60,67,.6);--t3:rgba(60,60,67,.3);
-  --acc:#007aff;--acc-soft:rgba(0,122,255,.12);--ok:#34c759;--ok-soft:rgba(52,199,89,.15);--err:#ff3b30;
+  --acc:#007aff;--acc-soft:rgba(0,122,255,.12);--warn:#ff9500;--ok:#34c759;--ok-soft:rgba(52,199,89,.15);--err:#ff3b30;
   --bar:rgba(242,242,247,.8);--seg:rgba(118,118,128,.12);--seg-on:#fff;
 }}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -90,7 +90,9 @@ h1{font-size:34px;line-height:1.1;font-weight:700;letter-spacing:-.02em;margin:4
 .main{flex:1;min-width:0}
 .name{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub{font-size:13px;color:var(--t2);margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sub.ok{color:var(--ok)}.sub.err{color:var(--err);white-space:normal}
+.sub.ok{color:var(--ok)}.sub.warn{color:var(--warn)}.sub.err{color:var(--err);white-space:normal}
+.btn.danger{color:var(--err)}.stop-all{margin-top:14px;min-height:48px}
+.muted .check circle{fill:var(--t3)}
 .row .bar{height:4px;margin-top:7px}
 .empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:36px 24px;color:var(--t2);font-size:15px}
 .empty .orb{background:var(--fill);color:var(--t2)}
@@ -157,8 +159,9 @@ a.name{display:block;color:inherit;text-decoration:none}
       </div>
       <div id="totalDone" class="done-state" hidden>
         <svg class="check" viewBox="0 0 52 52"><circle cx="26" cy="26" r="26"/><path d="M15 27l7 7 15-16"/></svg>
-        <div><h3>Hammasi Mac'ga saqlandi</h3><p id="doneMeta"></p></div>
+        <div><h3 id="doneTitle">Hammasi Mac'ga saqlandi</h3><p id="doneMeta"></p></div>
       </div>
+      <button id="stopAll" class="btn sec danger press stop-all" hidden>Hammasini to'xtatish</button>
     </div>
     <div id="upList" class="card"></div>
     <p class="tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg><span>Tugaguncha shu sahifani ochiq qoldiring va ekranni o'chirmang. Uzilib qolsa — sahifani yangilang va fayllarni qayta tanlang: yetib kelgan qismlar qayta yuborilmaydi.</span></p>
@@ -181,6 +184,7 @@ a.name{display:block;color:inherit;text-decoration:none}
     </ol>
   </div>
   <p class="tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg><span>Rasm ustiga bossangiz belgilanadi — faqat tanlanganlar olinadi. Bitta faylni «Olish» bilan olsa ham bo'ladi.</span></p>
+  <p class="tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span>Yuklashni to'xtatish: brauzerning yuklashlar ro'yxatida (↓ belgisi) faylning <b>✕</b> tugmasini bosing. Zip to'xtatilsa, Mac uni «Bekor qilindi» deb ko'rsatadi.</span></p>
 </section>
 <input type="checkbox" switch id="hx" class="hx" aria-hidden="true" tabindex="-1"><label for="hx" id="hxl" class="hx"></label>
 
@@ -226,8 +230,8 @@ a.name{display:block;color:inherit;text-decoration:none}
     constructor(status, msg) { super(msg); this.status = status; }
   }
 
-  async function api(path, body) {
-    const opts = { headers: { 'X-WS-Token': K } };
+  async function api(path, body, method) {
+    const opts = { method: method || 'GET', headers: { 'X-WS-Token': K } };
     if (body !== undefined) {
       opts.method = 'POST';
       opts.headers['Content-Type'] = 'application/json';
@@ -280,7 +284,7 @@ a.name{display:block;color:inherit;text-decoration:none}
 
   function addFiles(list) {
     for (const file of list) {
-      const j = { file, id: '', cs: 8 << 20, todo: [], left: 0, done: 0, live: new Map(), state: 'wait', err: '', gen: 0, ready: null, speed: 0, lastGot: 0 };
+      const j = { file, id: '', cs: 8 << 20, todo: [], left: 0, done: 0, live: new Map(), xhrs: new Map(), state: 'wait', err: '', gen: 0, ready: null, speed: 0, lastGot: 0 };
       j.ui = makeUpRow(j);
       jobs.push(j);
     }
@@ -321,6 +325,11 @@ a.name{display:block;color:inherit;text-decoration:none}
     try {
       const f = j.file;
       const r = await withRetry(() => api('/api/upload', { name: f.name, size: f.size, modified: f.lastModified || 0 }));
+      if (j.state !== 'init') {
+        // cancelled while the Mac was preparing it
+        if (!r.saved_as) api('/api/upload/' + r.id, undefined, 'DELETE').catch(() => {});
+        return;
+      }
       j.id = r.id;
       j.cs = r.chunk_size;
       if (r.saved_as) { j.skipped = true; j.done = f.size; markDone(j, r.saved_as); return; }
@@ -337,17 +346,19 @@ a.name{display:block;color:inherit;text-decoration:none}
     return new Promise((resolve, reject) => {
       const x = new XMLHttpRequest();
       x.open('PUT', '/api/chunk/' + j.id + '/' + i);
+      j.xhrs.set(i, x);
       x.setRequestHeader('X-WS-Token', K);
       x.timeout = 180000;
       x.upload.onprogress = (e) => j.live.set(i, e.loaded);
       x.onload = () => {
         j.live.delete(i);
+        j.xhrs.delete(i);
         if (x.status >= 200 && x.status < 300) return resolve();
         let msg = 'Xatolik ' + x.status;
         try { msg = JSON.parse(x.responseText).error || msg; } catch { /* plain text */ }
         reject(new HttpError(x.status, msg));
       };
-      x.onerror = x.ontimeout = x.onabort = () => { j.live.delete(i); reject(new HttpError(0, 'Tarmoq uzildi')); };
+      x.onerror = x.ontimeout = x.onabort = () => { j.live.delete(i); j.xhrs.delete(i); reject(new HttpError(0, 'Tarmoq uzildi')); };
       x.send(blob);
     });
   }
@@ -356,7 +367,10 @@ a.name{display:block;color:inherit;text-decoration:none}
     const start = i * j.cs;
     const len = chunkLen(j, i);
     try {
-      await withRetry(() => putChunk(j, i, j.file.slice(start, start + len)));
+      await withRetry(() => {
+        if (j.gen !== gen) throw new HttpError(499, 'cancelled'); // stopped meanwhile: no retry
+        return putChunk(j, i, j.file.slice(start, start + len));
+      });
     } catch (e) {
       if (j.gen === gen) failJob(j, e);
       return;
@@ -384,7 +398,41 @@ a.name{display:block;color:inherit;text-decoration:none}
     j.ui.thumbWrap.appendChild(badge);
   }
 
+  const isActive = (j) => j.state === 'wait' || j.state === 'init' || j.state === 'up';
+
+  // stops queuing and aborts chunks in flight; by = 'phone' | 'mac'
+  function stopJob(j, by) {
+    j.state = by === 'mac' ? 'maccancel' : 'cancelled';
+    j.todo = [];
+    j.gen += 1;
+    j.xhrs.forEach((x) => x.abort());
+    j.xhrs.clear();
+    j.live.clear();
+  }
+
+  function cancelOnMac(j) {
+    if (j.id) api('/api/upload/' + j.id, undefined, 'DELETE').catch((e) => console.error('cancel failed', e));
+  }
+
+  function cancelJob(j) {
+    if (!isActive(j)) return;
+    const size = j.file.size;
+    const pct = size ? Math.floor(((j.done + liveSum(j)) / size) * 100) : 0;
+    if (pct > 90 && !confirm(j.file.name + ' deyarli tugadi (' + pct + '%). Baribir bekor qilinsinmi?')) return;
+    haptic();
+    stopJob(j, 'phone');
+    cancelOnMac(j);
+  }
+
+  function cancelAll() {
+    const active = jobs.filter(isActive);
+    if (!active.length || !confirm('Yuborilayotgan ' + active.length + " ta fayl bekor qilinsinmi? Mac'ga saqlanganlari qoladi.")) return;
+    haptic();
+    active.forEach((j) => { stopJob(j, 'phone'); cancelOnMac(j); });
+  }
+
   function failJob(j, e) {
+    if (e && e.status === 410) { stopJob(j, 'mac'); return; } // the Mac pressed ✕
     j.state = 'err';
     j.err = (e && e.message) || 'Xatolik';
     j.todo = [];
@@ -418,9 +466,11 @@ a.name{display:block;color:inherit;text-decoration:none}
     const retry = el('button', 'btn sec pill press', 'Qayta');
     retry.hidden = true;
     retry.onclick = () => retryJob(j);
-    row.append(thumbWrap, main, retry);
+    const stop = el('button', 'btn sec pill press danger', '✕ Bekor qilish');
+    stop.onclick = () => cancelJob(j);
+    row.append(thumbWrap, main, retry, stop);
     $('upList').appendChild(row);
-    return { sub, bar, retry, thumbWrap };
+    return { sub, bar, retry, stop, thumbWrap };
   }
 
   function renderJob(j, dt) {
@@ -436,10 +486,14 @@ a.name{display:block;color:inherit;text-decoration:none}
       up: pct + '% · ' + (j.speed > 1024 ? fmtSpeed(j.speed) + eta : fmt(got) + ' / ' + fmt(size)),
       done: j.skipped ? "Avval yuborilgan · Mac'da bor" : "Mac'ga saqlandi · " + fmt(size),
       err: j.err,
+      cancelled: 'Bekor qilindi',
+      maccancel: 'Mac bekor qildi',
     };
+    const stopped = j.state === 'cancelled' || j.state === 'maccancel';
     j.ui.sub.textContent = texts[j.state];
-    j.ui.sub.className = 'sub' + (j.state === 'done' ? ' ok' : j.state === 'err' ? ' err' : '');
-    j.ui.bar.hidden = j.state === 'done';
+    j.ui.sub.className = 'sub' + (j.state === 'done' ? ' ok' : j.state === 'err' ? ' err' : stopped ? ' warn' : '');
+    j.ui.bar.hidden = j.state === 'done' || stopped;
+    j.ui.stop.hidden = !isActive(j);
     j.ui.bar.firstChild.style.width = pct + '%';
     j.ui.retry.hidden = j.state !== 'err';
     return got;
@@ -452,29 +506,35 @@ a.name{display:block;color:inherit;text-decoration:none}
     const now = performance.now();
     const dt = lastTick ? (now - lastTick) / 1000 : 0;
     lastTick = now;
-    let total = 0, got = 0, done = 0, live = 0;
+    let total = 0, got = 0, done = 0, live = 0, doneBytes = 0, stopped = 0;
     for (const j of jobs) {
+      const g = renderJob(j, dt);
+      if (j.state === 'cancelled' || j.state === 'maccancel') { stopped++; continue; }
       total += j.file.size;
-      got += renderJob(j, dt);
+      got += g;
       live += liveSum(j);
-      if (j.state === 'done') done++;
+      if (j.state === 'done') { done++; doneBytes += j.file.size; }
     }
     samples.push([now, netSent + live]);
     while (samples.length > 2 && now - samples[0][0] > 3000) samples.shift();
     const [t0, b0] = samples[0];
     const speed = now > t0 ? ((netSent + live - b0) / (now - t0)) * 1000 : 0;
     const pct = total ? Math.floor((got / total) * 100) : 100;
-    const allDone = done === jobs.length;
+    const allDone = !jobs.some(isActive);
     $('upPct').innerHTML = pct + '<small>%</small>';
     $('upSpeed').innerHTML = '';
     $('upSpeed').append(speed > 1024 ? fmtSpeed(speed) : '—', el('span', '', speed > 1024 ? fmtTime((total - got) / speed) + ' qoldi' : 'tezlik'));
     $('upTotalBar').firstChild.style.width = pct + '%';
-    $('upCount').textContent = done + ' / ' + jobs.length + ' ta';
+    $('upCount').textContent = done + ' / ' + (jobs.length - stopped) + ' ta' + (stopped ? ' · ' + stopped + ' ta bekor' : '');
+    $('stopAll').hidden = allDone;
     $('upBytes').textContent = fmt(got) + ' / ' + fmt(total);
     $('totalLive').hidden = allDone;
     $('totalDone').hidden = !allDone;
     if (allDone && !wasAllDone) {
-      $('doneMeta').textContent = jobs.length + ' ta fayl · ' + fmt(total);
+      $('doneTitle').textContent = !stopped && done === jobs.length ? "Hammasi Mac'ga saqlandi"
+        : done ? done + " ta fayl Mac'ga saqlandi" : 'Yuborish bekor qilindi';
+      $('doneMeta').textContent = done + ' ta fayl · ' + fmt(doneBytes) + (stopped ? ' · ' + stopped + ' ta bekor qilindi' : '');
+      $('totalDone').classList.toggle('muted', done === 0);
       const c = $('totalDone').querySelector('.check');
       c.replaceWith(c.cloneNode(true)); // replay the checkmark animation
       haptic();
@@ -482,6 +542,7 @@ a.name{display:block;color:inherit;text-decoration:none}
     wasAllDone = allDone;
   }
 
+  $('stopAll').addEventListener('click', cancelAll);
   for (const id of ['pickMedia', 'pickAny']) {
     $(id).addEventListener('click', haptic);
     $(id).addEventListener('change', (e) => {
@@ -626,6 +687,8 @@ a.name{display:block;color:inherit;text-decoration:none}
     try {
       const s = await api('/api/state');
       PAR = Math.max(1, Math.min(6, s.parallel || 4));
+      const macStopped = new Set(s.cancelled || []);
+      jobs.forEach((j) => { if (j.id && isActive(j) && macStopped.has(j.id)) stopJob(j, 'mac'); });
       renderOutgoing(s.files || []);
       setLink(true, 'Mac bilan ulangan');
     } catch (e) {

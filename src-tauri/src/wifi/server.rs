@@ -24,10 +24,10 @@ use tokio_stream::StreamExt;
 use tokio_util::io::ReaderStream;
 use tokio_util::sync::CancellationToken;
 
-use super::outgoing::{self, Entry};
+use super::outgoing::{self, ActiveGuard, Entry};
 use super::range::{self, ByteRange};
 use super::state::{self, Shared};
-use super::upload::{self, ApiError, InitReq, InitResp, CHUNK_SIZE};
+use super::upload::{self, ApiError, CancelBy, InitReq, InitResp, CHUNK_SIZE};
 use super::zip::{self, ZipItem};
 use super::{lock, names, net};
 
@@ -62,6 +62,7 @@ fn router(ctx: Ctx) -> Router {
         .route("/", get(page))
         .route("/api/state", get(api_state))
         .route("/api/upload", post(upload_init))
+        .route("/api/upload/{id}", axum::routing::delete(upload_cancel))
         .route("/api/chunk/{id}/{index}", put(upload_chunk).layer(chunk_limit))
         .route("/api/finish/{id}", post(upload_finish))
         .route("/api/file/{id}", get(download))
@@ -118,13 +119,15 @@ async fn page() -> Response {
     ([(header::CONTENT_SECURITY_POLICY, PAGE_CSP)], Html(PAGE)).into_response()
 }
 
-async fn api_state() -> Json<Value> {
+async fn api_state(State(ctx): State<Ctx>) -> Json<Value> {
     // names and sizes only: Mac paths never leave the Mac
     let files: Vec<Value> = outgoing::list()
         .into_iter()
         .map(|f| json!({ "id": f.id, "name": f.name, "size": f.size, "kind": f.kind }))
         .collect();
-    Json(json!({ "files": files, "chunk_size": CHUNK_SIZE, "parallel": PARALLEL_CHUNKS }))
+    // uploads the Mac stopped: the phone aborts their chunks right away
+    let cancelled = ctx.shared.cancelled_by_mac();
+    Json(json!({ "files": files, "chunk_size": CHUNK_SIZE, "parallel": PARALLEL_CHUNKS, "cancelled": cancelled }))
 }
 
 async fn blocking<T: Send + 'static>(
@@ -182,6 +185,13 @@ async fn upload_finish(State(ctx): State<Ctx>, Path(id): Path<String>) -> Result
     Ok(Json(json!({ "saved_as": saved })))
 }
 
+/// The phone's "Bekor qilish": temp file is deleted at once, finished files stay
+async fn upload_cancel(State(ctx): State<Ctx>, Path(id): Path<String>) -> Result<StatusCode, ApiError> {
+    let up = ctx.shared.find_upload(&id).ok_or_else(unknown_upload)?;
+    blocking(move || up.cancel(CancelBy::Phone)).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 #[derive(Deserialize)]
 struct FileQuery {
     inline: Option<u8>,
@@ -218,7 +228,10 @@ async fn file_body(mut file: tokio::fs::File, start: u64, len: u64, entry: &Entr
         file.seek(SeekFrom::Start(start)).await?;
     }
     let (sent, shared, cancel) = (entry.sent.clone(), ctx.shared.clone(), ctx.cancel.clone());
+    // lives as long as the response body: browser X or lost Wi-Fi drops it
+    let active = ActiveGuard::new(&entry.active);
     let stream = ReaderStream::with_capacity(file.take(len), READ_BUF).map(move |chunk| {
+        let _running = &active;
         if cancel.is_cancelled() {
             return Err(std::io::Error::other("wifi server stopped"));
         }
@@ -300,7 +313,7 @@ fn zip_item(id: u32, taken: &mut HashSet<String>, tz_secs: i64) -> Result<ZipIte
     let unix = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs());
     let modified = (unix as i64 + tz_secs).max(0) as u64;
     let name = unique_zip_name(taken, &names::sanitize_file_name(&entry.name));
-    Ok(ZipItem { name, path: entry.path, size: meta.len(), modified, sent: entry.sent })
+    Ok(ZipItem { name, path: entry.path, size: meta.len(), modified, sent: entry.sent, active: entry.active })
 }
 
 /// Only ids from the outgoing list; repeats are ignored
@@ -339,8 +352,9 @@ async fn download_zip(State(ctx): State<Ctx>, Query(q): Query<ZipQuery>) -> Resp
     let name = zip_file_name(q.name.as_deref());
     let total = zip::total_len(&items);
     tracing::info!(file = %name, files = items.len(), bytes = total, "wifi: zip download");
+    let job = ctx.shared.add_zip(name.clone(), items.len(), total);
     let (tx, rx) = tokio::sync::mpsc::channel(4);
-    tokio::spawn(zip::stream(items, tx, ctx.shared.clone(), ctx.cancel.clone()));
+    tokio::spawn(zip::stream(items, tx, ctx.shared.clone(), job, ctx.cancel.clone()));
     Response::builder()
         .header(header::CONTENT_TYPE, "application/zip")
         .header(header::CONTENT_LENGTH, total)
