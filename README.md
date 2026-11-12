@@ -113,9 +113,120 @@ Yagona yozish — «iPhone'ga yuborish»da tanlangan ilovaning yangi papkasiga f
 
 ---
 
+## 📦 Installation (macOS)
+
+WireShift ships as a standard macOS installer package: `WireShift_<version>_aarch64.pkg` (`aarch64` = Apple Silicon, M1 and newer).
+
+> **Why does macOS block it?** The package is not yet signed with an Apple Developer ID and notarized by Apple. Gatekeeper therefore cannot confirm who published it and refuses to open it the first time. This is expected for apps distributed outside the App Store — you only need to approve it **once**. Steps 1–4 approve the package, steps 5–10 are the normal installation.
+
+### Step 1 — First launch is blocked ("Not Opened")
+
+**What you see:** after double-clicking the `.pkg`, macOS shows *"WireShift_…_aarch64.pkg" Not Opened — Apple could not verify … is free of malware*.
+
+**Why:** Gatekeeper blocks every unnotarized file downloaded from the internet on its first launch. Nothing has been installed yet.
+
+**What to do:** click **Done**. ⚠️ Do **not** click *Move to Trash* — that deletes the installer and you would have to download it again.
+
+<p align="center"><img src="./assets/install/01-not-opened.png" alt="WireShift pkg Not Opened dialog" width="320" /></p>
+
+### Step 2 — Find the blocked package in Privacy & Security
+
+**What to do:** open  → **System Settings → Privacy & Security** and scroll down to the **Security** section.
+
+**What you see:** the line *"WireShift_…_aarch64.pkg" was blocked to protect your Mac* with an **Open Anyway** button next to it. This line only appears for about an hour after the attempt in Step 1 — if it is missing, repeat Step 1.
+
+**What to do:** click **Open Anyway**. Leave *Allow applications from* as it is — there is no need to lower the security level of your whole Mac.
+
+<p align="center"><img src="./assets/install/02-privacy-security.png" alt="Privacy & Security — Open Anyway" width="560" /></p>
+
+### Step 3 — Confirm that you trust the package
+
+**What you see:** a second warning, *Open "WireShift_…_aarch64.pkg"?*, with three buttons: *Move to Trash*, *Open Anyway* and *Done*.
+
+**Why:** macOS asks you to confirm explicitly that the file comes from a source you trust (download it only from the official WireShift release page).
+
+**What to do:** click **Open Anyway**.
+
+<p align="center"><img src="./assets/install/03-open-anyway.png" alt="Open Anyway confirmation" width="560" /></p>
+
+### Step 4 — Authorize the exception with Touch ID or password
+
+**What you see:** *You are attempting to open an app that may cause harm to your Mac… Touch ID or enter an administrator's name and password to continue with Privacy & Security.*
+
+**Why:** only an administrator may add a Gatekeeper exception. The warning text is generic — macOS shows it for every unnotarized app.
+
+**What to do:** touch the **Touch ID** sensor, or click **Use Password…** and enter your Mac login password. The installer opens right after this.
+
+<p align="center"><img src="./assets/install/04-confirm-privacy.png" alt="Touch ID prompt for Privacy & Security" width="560" /></p>
+
+### Step 5 — Installer: Introduction
+
+**What you see:** the *Install WireShift_…_aarch64* window with the welcome text. The left sidebar shows all stages: Introduction → Destination Select → Installation Type → Installation → Summary.
+
+**What to do:** click **Continue**.
+
+<p align="center"><img src="./assets/install/05-introduction.png" alt="Installer — Introduction" width="560" /></p>
+
+### Step 6 — Installer: Installation Type
+
+**What you see:** *Standard Install on "Macintosh HD"* — the app takes about **25 MB** of disk space and is installed into `/Applications`.
+
+**What to do:** click **Install**. Use *Change Install Location…* only if you need to install on another disk; the default is correct for almost everyone.
+
+<p align="center"><img src="./assets/install/06-installation-type.png" alt="Installer — Installation Type" width="560" /></p>
+
+### Step 7 — Authorize the installation
+
+**What you see:** *Installer is trying to install new software. Touch ID or enter your password to continue with "Installer".*
+
+**Why:** writing into `/Applications` requires administrator rights. This is a separate prompt from Step 4: Step 4 allowed the file to open, this one allows it to install.
+
+**What to do:** confirm with **Touch ID** or **Use Password…**.
+
+<p align="center"><img src="./assets/install/07-confirm-installer.png" alt="Touch ID prompt for Installer" width="560" /></p>
+
+### Step 8 — Installation in progress
+
+**What you see:** *Installing WireShift_…_aarch64 — Validating packages…* with a progress bar.
+
+**What to do:** nothing — wait a few seconds. Do not close the window while the bar is moving.
+
+<p align="center"><img src="./assets/install/08-installing.png" alt="Installer — Validating packages" width="560" /></p>
+
+### Step 9 — Installation complete
+
+**What you see:** a green check mark and *The installation was successful. The software was installed.*
+
+**What to do:** click **Close**.
+
+<p align="center"><img src="./assets/install/09-success.png" alt="Installer — Success" width="560" /></p>
+
+### Step 10 — Keep or delete the installer file
+
+**What you see:** *Do you want to move the "WireShift_…_aarch64" Installer to the Trash?*
+
+**Why:** the app is already installed; the `.pkg` file is no longer needed to run it.
+
+**What to do:** click **Move to Trash** to free up space, or **Keep** if you want to reinstall WireShift later without downloading it again. Either choice is safe.
+
+<p align="center"><img src="./assets/install/10-move-to-trash.png" alt="Move installer to Trash dialog" width="560" /></p>
+
+### ✅ Launch WireShift
+
+Open **WireShift** from the **Applications** folder, Launchpad or Spotlight (`⌘ Space` → type *WireShift*). The Gatekeeper approval is remembered, so no warning appears again for this version.
+
+> **Terminal alternative (replaces Steps 1–4):** the block comes from the `com.apple.quarantine` attribute that macOS adds to downloaded files. Removing it lets the installer open straight away at Step 5:
+> ```bash
+> xattr -d com.apple.quarantine ~/Downloads/WireShift_*_aarch64.pkg
+> open ~/Downloads/WireShift_*_aarch64.pkg
+> ```
+
+---
+
 ## 🎨 Color Design System
 
 The complete color design system is established in [`design-system/`](./design-system/):
+
 - [`design-system/COLOR_SYSTEM.md`](./design-system/COLOR_SYSTEM.md) — Comprehensive design token manual and WCAG 2.2 AA audit.
 - [`design-system/theme.css`](./design-system/theme.css) — Production CSS custom properties for Dark & Light modes.
 - [`design-system/tokens.json`](./design-system/tokens.json) — JSON design tokens format.
