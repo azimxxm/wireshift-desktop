@@ -8,6 +8,8 @@ export interface AppSettings {
   /** Skip files already saved on the Mac with the same size */
   skipExisting: boolean
   thumbSize: number
+  /** Last app picked as the Mac -> iPhone target (bundle id) */
+  importApp: string
 }
 
 const KEY = 'wireshift.settings.v1'
@@ -18,6 +20,7 @@ const DEFAULTS: AppSettings = {
   openFinderAfterExport: false,
   skipExisting: true,
   thumbSize: 168,
+  importApp: '',
 }
 
 const load = (): AppSettings => {

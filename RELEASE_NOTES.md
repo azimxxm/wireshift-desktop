@@ -1,29 +1,36 @@
-## WireShift v3.0.1 — hammasi haqiqiy ishlaydi
+## WireShift v3.1.0 — Mac → iPhone va Wi-Fi orqali (QR kod)
 
 ### O'rnatish (eng oson)
 Terminal'ni oching va yozing:
 ```bash
 curl -fsSL https://github.com/azimxxm/wireshift-desktop/releases/latest/download/install.sh | bash
 ```
-Ilova yuklab olinadi, Applications papkasiga o'rnatiladi va ochiladi — ogohlantirish chiqmaydi.
+Ilova yuklab olinadi, Applications papkasiga o'rnatiladi va ochiladi.
 
-**Yoki** `WireShift_3.0.1_aarch64.pkg` ni yuklab o'rnating. macOS «Apple tekshira olmadi» desa:
+**Yoki** `WireShift_3.1.0_aarch64.pkg` ni yuklab o'rnating. macOS «Apple tekshira olmadi» desa:
 System Settings → Privacy & Security → pastda **Open Anyway** → qayta oching.
 
 Talab: Apple Silicon Mac (M1/M2/M3/M4), macOS 11+. Homebrew kerak emas.
 
 ### Yangi
-- **Eksport:** hammasi / faqat videolar / faqat rasmlar; albom papkalari saqlanadi; **faqat yangi fayllar** —
-  Mac'da bor fayllar qayta ko'chirilmaydi; rasm tahrirlari (AAE) birga saqlanadi.
-- **Kabel tezligi:** haqiqiy ulanish tezligi va Mac modeli; 64 MB o'qib aniq o'lchash (hech narsa yozilmaydi);
-  qaysi kabel (oddiy, 5 Gbps, 10 Gbps, Thunderbolt) qancha tezlik berishi rasmlar bilan va galereyangizni necha daqiqada ko'chirishi.
+- **iPhone'ga yuborish (kabel orqali):** video, rasm va fayllarni Mac'dan telefonga yuboring — Finder'dan
+  tortib tashlash ham ishlaydi. Fayllar telefondagi ilova (masalan VLC) papkasiga tushadi:
+  Files → On My iPhone → ilova → WireShift … → Select All → Share → Save to Photos.
+  Ilova papka yarata olmasa — qadamma-qadam yordam oynasi ochiladi.
+- **Wi-Fi orqali (kabelsiz, QR kod):** «Wi-Fi orqali ulanish» → QR chiqadi → iPhone kamerasi bilan skanerlang.
+  Telefonga ilova o'rnatish shart emas, Safari'da ochiladi. Telefon va Mac bitta Wi-Fi'da bo'lishi kerak.
+  - Telefondan Mac'ga: rasm va videolar bo'laklab, parallel yuboriladi; uzilsa davom etadi.
+  - Mac'dan telefonga: fayllarni ro'yxatga torting — telefonda bittalab, «Hammasini olish» (birma-bir)
+    yoki xohlasangiz bitta .zip qilib olasiz.
+  - Har bir faylni yoki hammasini istalgan payt bekor qilish — chala fayllar darhol o'chadi.
+  - Mac'da jonli tezlik, kelgan fayllarni ochish / Finder'da ko'rsatish, «Papkani ochish», «Tozalash».
+  - Xavfsizlik: har sessiyaga maxfiy kalit, faqat lokal tarmoq; server faqat tugma bosilganda ishlaydi
+    va 15 daqiqa ishlatilmasa o'zi o'chadi.
 
-### Olib tashlandi (kabel orqali iloji yo'q)
-- Kontaktlar, «Boshqa fayllar» va «Boshqa iPhone'ga» rejimi — ular ishlamas edi.
+### Birinchi Wi-Fi ulanishida
+macOS «WireShift kiruvchi ulanishlarni qabul qilsinmi?» deb so'rasa — **Allow**.
+Asl sifatdagi video uchun telefonda tanlash oynasida Options → **Current**.
 
 ### Tuzatishlar
-- Homebrew o'rnatilmagan Mac'larda iPhone ko'rinmas edi (kutubxona Homebrew'ga bog'lanib qolgan edi).
-- iPhone 16 / 16 Plus noto'g'ri USB 3 deb ko'rsatilardi (ular USB 2.0).
-- Galereyada iOS tizim fayllari va AAE kataklari ko'rinmaydi.
-
-v3.0.0 dagi yangi dizayn, video ko'rish va haqiqiy batareya diagnostikasi ham shu versiyada.
+- Buzuq video thumbnail'i Quick Look'ni abadiy osib qo'yardi — endi 8 soniyada to'xtatiladi.
+- Ilova loglari endi yoziladi (muammolarni topish osonroq).

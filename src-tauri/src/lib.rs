@@ -1,7 +1,8 @@
 pub mod device;
 mod media_protocol;
+mod wifi;
 
-use device::{Bridge, ConnectedDevice, DeviceDetector, FileExporter};
+use device::{Bridge, ConnectedDevice, DeviceDetector, FileExporter, FileImporter};
 
 #[tauri::command]
 async fn get_connected_devices() -> Result<Vec<ConnectedDevice>, String> {
@@ -67,6 +68,44 @@ async fn get_export_progress(destination_dir: String) -> Result<serde_json::Valu
 #[tauri::command]
 async fn cancel_export() -> Result<(), String> {
     FileExporter::cancel_export();
+    Ok(())
+}
+
+/// Apps on the phone that accept files from the Mac (Mac -> iPhone target)
+#[tauri::command]
+async fn list_shared_apps(udid: String) -> Result<Vec<device::native::SharedApp>, String> {
+    tokio::task::spawn_blocking(move || device::native::list_shared_apps(&udid))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn inspect_local_paths(paths: Vec<String>) -> Result<Vec<device::importer::LocalItem>, String> {
+    tokio::task::spawn_blocking(move || FileImporter::inspect_local(&paths))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn import_to_iphone(
+    udid: String,
+    bundle_id: String,
+    folder: String,
+    paths: Vec<String>,
+) -> Result<device::importer::ImportResult, String> {
+    tokio::task::spawn_blocking(move || FileImporter::import(&udid, &bundle_id, &folder, &paths))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn get_import_progress() -> Result<device::importer::ImportProgress, String> {
+    Ok(FileImporter::progress())
+}
+
+#[tauri::command]
+async fn cancel_import() -> Result<(), String> {
+    FileImporter::cancel();
     Ok(())
 }
 
@@ -161,8 +200,77 @@ async fn clear_thumbnail_cache() -> Result<(), String> {
     Ok(())
 }
 
+/// Wi-Fi transfer: start the LAN server, files from the phone go to export_dir/folder_name
+#[tauri::command]
+async fn wifi_start(export_dir: String, folder_name: String) -> Result<wifi::WifiInfo, String> {
+    let dir = if export_dir.trim().is_empty() { FileExporter::default_export_dir() } else { export_dir };
+    wifi::start(FileExporter::resolve_path(&dir), &folder_name).await
+}
+
+#[tauri::command]
+async fn wifi_stop() -> Result<(), String> {
+    wifi::stop(None);
+    Ok(())
+}
+
+#[tauri::command]
+async fn wifi_info() -> Result<Option<wifi::WifiInfo>, String> {
+    Ok(wifi::info())
+}
+
+#[tauri::command]
+async fn wifi_status() -> Result<wifi::WifiStatus, String> {
+    Ok(wifi::status())
+}
+
+#[tauri::command]
+async fn wifi_add_outgoing(paths: Vec<String>) -> Result<Vec<wifi::OutgoingView>, String> {
+    tokio::task::spawn_blocking(move || wifi::add_outgoing(&paths))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn wifi_remove_outgoing(id: u32) -> Result<(), String> {
+    wifi::remove_outgoing(id);
+    Ok(())
+}
+
+/// Photo/video preview for the Wi-Fi page lists ("in-<id>" or "out-<n>")
+#[tauri::command]
+async fn wifi_thumbnail(key: String) -> Result<String, String> {
+    wifi::preview(&key).await
+}
+
+/// Click on a received file: open it, or show it in Finder
+#[tauri::command]
+async fn wifi_open_received(id: String, reveal: bool) -> Result<(), String> {
+    wifi::open_received(&id, reveal).await
+}
+
+/// "Tozalash": clear finished rows from the Wi-Fi page (files on disk stay)
+#[tauri::command]
+async fn wifi_clear_history() -> Result<(), String> {
+    wifi::clear_history();
+    Ok(())
+}
+
+/// ✕ on an incoming row: stop that upload, the phone sees "Mac bekor qildi"
+#[tauri::command]
+async fn wifi_cancel_upload(id: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || wifi::cancel_upload(&id)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn wifi_clear_outgoing() -> Result<(), String> {
+    wifi::clear_outgoing();
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // logs go to stderr (Console.app / terminal); without this every tracing call is dropped
+    let _ = tracing_subscriber::fmt().with_max_level(tracing::Level::INFO).with_target(false).try_init();
     Bridge::init_environment();
 
     tauri::Builder::default()
@@ -175,6 +283,8 @@ pub fn run() {
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed = event {
                 FileExporter::cancel_export();
+                FileImporter::cancel();
+                wifi::stop(None);
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -194,7 +304,23 @@ pub fn run() {
             cancel_export,
             titlebar_double_click,
             get_cache_size,
-            clear_thumbnail_cache
+            clear_thumbnail_cache,
+            list_shared_apps,
+            inspect_local_paths,
+            import_to_iphone,
+            get_import_progress,
+            cancel_import,
+            wifi_start,
+            wifi_stop,
+            wifi_info,
+            wifi_status,
+            wifi_add_outgoing,
+            wifi_remove_outgoing,
+            wifi_clear_outgoing,
+            wifi_thumbnail,
+            wifi_open_received,
+            wifi_clear_history,
+            wifi_cancel_upload
         ])
         .run(tauri::generate_context!())
         .expect("error while running WireShift desktop application");

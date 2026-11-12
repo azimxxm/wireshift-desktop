@@ -113,3 +113,90 @@ export interface MediaCatalogSummary {
   other_bytes: number;
   items: MediaItem[];
 }
+
+/** iPhone app that accepts files from the Mac (house_arrest Documents) */
+export interface SharedApp {
+  bundle_id: string;
+  name: string;
+  /** shows up in Files > On My iPhone, so "Save to Photos" works from there */
+  visible_in_files: boolean;
+}
+
+export interface LocalItem {
+  path: string;
+  name: string;
+  is_dir: boolean;
+  file_count: number;
+  size_bytes: number;
+}
+
+export interface ImportProgress {
+  active: boolean;
+  total_files: number;
+  done_files: number;
+  total_bytes: number;
+  done_bytes: number;
+  current_file: string;
+}
+
+export interface ImportResult {
+  copied: number;
+  folder: string;
+}
+
+/* ---------- Wi-Fi transfer ---------- */
+
+export interface WifiInfo {
+  url: string;
+  qr_svg: string;
+  /** where files from the phone are saved */
+  folder: string;
+}
+
+export interface WifiPhone {
+  ip: string;
+  label: string;
+  connected: boolean;
+}
+
+export interface WifiIncoming {
+  id: string;
+  name: string;
+  size: number;
+  received: number;
+  saved_as: string | null;
+  cancelled_by: "phone" | "mac" | null;
+}
+
+export interface WifiOutgoing {
+  id: number;
+  name: string;
+  path: string;
+  size: number;
+  kind: "image" | "video" | "file";
+  sent_bytes: number;
+  /** downloads of this file running right now */
+  active: number;
+}
+
+export interface WifiZip {
+  name: string;
+  files: number;
+  total: number;
+  sent: number;
+  state: "running" | "done" | "cancelled";
+}
+
+export interface WifiStatus {
+  running: boolean;
+  lan_ip: string | null;
+  url: string | null;
+  folder: string | null;
+  phone: WifiPhone | null;
+  incoming: WifiIncoming[];
+  outgoing: WifiOutgoing[];
+  zips: WifiZip[];
+  received_total: number;
+  sent_total: number;
+  stop_reason: string | null;
+}
