@@ -1,4 +1,5 @@
 pub mod device;
+mod maclink;
 mod media_protocol;
 mod wifi;
 
@@ -267,6 +268,115 @@ async fn wifi_clear_outgoing() -> Result<(), String> {
     Ok(())
 }
 
+// ---------- Mac <-> Mac ----------
+
+#[tauri::command]
+async fn maclink_status() -> Result<maclink::MacLinkStatus, String> {
+    tokio::task::spawn_blocking(maclink::status).await.map_err(|e| e.to_string())
+}
+
+/// "Boshlash": become visible to other Macs
+#[tauri::command]
+async fn maclink_start() -> Result<(), String> {
+    maclink::start().await
+}
+
+#[tauri::command]
+async fn maclink_stop() -> Result<(), String> {
+    maclink::turn_off()
+}
+
+/// Wi-Fi band / channel / speed of this Mac (Mac ↔ Mac page)
+#[tauri::command]
+async fn maclink_network() -> Result<Option<maclink::NetInfo>, String> {
+    Ok(maclink::network())
+}
+
+/// Name other Macs see; empty = back to the macOS computer name
+#[tauri::command]
+async fn maclink_set_name(name: String) -> Result<String, String> {
+    maclink::set_name(&name)
+}
+
+/// Opens System Settings > Wi-Fi (to switch to the 5 GHz network)
+#[tauri::command]
+async fn maclink_open_wifi_settings() -> Result<(), String> {
+    tokio::process::Command::new("/usr/bin/open")
+        .arg("x-apple.systempreferences:com.apple.wifi-settings-extension")
+        .status()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Sizes of dropped / picked files and folders before sending
+#[tauri::command]
+async fn maclink_inspect(paths: Vec<String>) -> Result<Vec<maclink::Picked>, String> {
+    tokio::task::spawn_blocking(move || maclink::inspect(&paths)).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn maclink_send(peer_id: String, paths: Vec<String>) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || maclink::send(&peer_id, paths)).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn maclink_pause(paused: bool) -> Result<(), String> {
+    maclink::pause(paused);
+    Ok(())
+}
+
+#[tauri::command]
+async fn maclink_cancel_send() -> Result<(), String> {
+    maclink::cancel_send();
+    Ok(())
+}
+
+#[tauri::command]
+async fn maclink_retry_send() -> Result<(), String> {
+    maclink::retry_send()
+}
+
+/// Accept / decline dialog on the receiving Mac
+#[tauri::command]
+async fn maclink_respond(id: String, accept: bool, trust: bool) -> Result<(), String> {
+    maclink::respond(&id, accept, trust)
+}
+
+#[tauri::command]
+async fn maclink_cancel_receive() -> Result<(), String> {
+    maclink::cancel_receive();
+    Ok(())
+}
+
+#[tauri::command]
+async fn maclink_clear_finished() -> Result<(), String> {
+    maclink::clear_finished();
+    Ok(())
+}
+
+#[tauri::command]
+async fn maclink_set_receive_dir(dir: String) -> Result<(), String> {
+    maclink::set_receive_dir(&dir)
+}
+
+#[tauri::command]
+async fn maclink_forget_trusted() -> Result<(), String> {
+    maclink::forget_trusted();
+    Ok(())
+}
+
+/// Show what arrived in Finder (selects the folder or file)
+#[tauri::command]
+async fn maclink_reveal_received() -> Result<(), String> {
+    let path = maclink::received_folder().ok_or("Hali hech narsa qabul qilinmagan")?;
+    let status = tokio::process::Command::new("/usr/bin/open").arg("-R").arg(&path).status().await.map_err(|e| e.to_string())?;
+    if !status.success() {
+        return Err("Finder'da ochib bo'lmadi".into());
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // logs go to stderr (Console.app / terminal); without this every tracing call is dropped
@@ -280,11 +390,16 @@ pub fn run() {
             // AFC reads block, keep them off the main thread
             std::thread::spawn(move || responder.respond(media_protocol::handle(request)));
         })
+        .setup(|app| {
+            maclink::init(app.handle().clone());
+            Ok(())
+        })
         .on_window_event(|_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed = event {
                 FileExporter::cancel_export();
                 FileImporter::cancel();
                 wifi::stop(None);
+                maclink::stop();
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -320,7 +435,24 @@ pub fn run() {
             wifi_thumbnail,
             wifi_open_received,
             wifi_clear_history,
-            wifi_cancel_upload
+            wifi_cancel_upload,
+            maclink_status,
+            maclink_start,
+            maclink_network,
+            maclink_set_name,
+            maclink_open_wifi_settings,
+            maclink_stop,
+            maclink_inspect,
+            maclink_send,
+            maclink_pause,
+            maclink_cancel_send,
+            maclink_retry_send,
+            maclink_respond,
+            maclink_cancel_receive,
+            maclink_clear_finished,
+            maclink_set_receive_dir,
+            maclink_forget_trusted,
+            maclink_reveal_received
         ])
         .run(tauri::generate_context!())
         .expect("error while running WireShift desktop application");

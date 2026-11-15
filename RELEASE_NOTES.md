@@ -1,4 +1,4 @@
-## WireShift v3.1.0 — Mac → iPhone va Wi-Fi orqali (QR kod)
+## WireShift v3.2.0 — Mac ↔ Mac (Wi-Fi orqali katta fayllar)
 
 ### O'rnatish (eng oson)
 Terminal'ni oching va yozing:
@@ -7,30 +7,31 @@ curl -fsSL https://github.com/azimxxm/wireshift-desktop/releases/latest/download
 ```
 Ilova yuklab olinadi, Applications papkasiga o'rnatiladi va ochiladi.
 
-**Yoki** `WireShift_3.1.0_aarch64.pkg` ni yuklab o'rnating. macOS «Apple tekshira olmadi» desa:
+**Yoki** `WireShift_3.2.0_aarch64.pkg` ni yuklab o'rnating. macOS «Apple tekshira olmadi» desa:
 System Settings → Privacy & Security → pastda **Open Anyway** → qayta oching.
 
 Talab: Apple Silicon Mac (M1/M2/M3/M4), macOS 11+. Homebrew kerak emas.
 
-### Yangi
-- **iPhone'ga yuborish (kabel orqali):** video, rasm va fayllarni Mac'dan telefonga yuboring — Finder'dan
-  tortib tashlash ham ishlaydi. Fayllar telefondagi ilova (masalan VLC) papkasiga tushadi:
-  Files → On My iPhone → ilova → WireShift … → Select All → Share → Save to Photos.
-  Ilova papka yarata olmasa — qadamma-qadam yordam oynasi ochiladi.
-- **Wi-Fi orqali (kabelsiz, QR kod):** «Wi-Fi orqali ulanish» → QR chiqadi → iPhone kamerasi bilan skanerlang.
-  Telefonga ilova o'rnatish shart emas, Safari'da ochiladi. Telefon va Mac bitta Wi-Fi'da bo'lishi kerak.
-  - Telefondan Mac'ga: rasm va videolar bo'laklab, parallel yuboriladi; uzilsa davom etadi.
-  - Mac'dan telefonga: fayllarni ro'yxatga torting — telefonda bittalab, «Hammasini olish» (birma-bir)
-    yoki xohlasangiz bitta .zip qilib olasiz.
-  - Har bir faylni yoki hammasini istalgan payt bekor qilish — chala fayllar darhol o'chadi.
-  - Mac'da jonli tezlik, kelgan fayllarni ochish / Finder'da ko'rsatish, «Papkani ochish», «Tozalash».
-  - Xavfsizlik: har sessiyaga maxfiy kalit, faqat lokal tarmoq; server faqat tugma bosilganda ishlaydi
-    va 15 daqiqa ishlatilmasa o'zi o'chadi.
+### Yangi: Mac ↔ Mac (⌘4)
+Ikki Mac o'rtasida istalgan hajmdagi fayl va papkalar (60–80 GB ham) — Wi-Fi orqali, sozlamasiz.
+File Sharing, parol yoki «Connect As» kerak emas.
 
-### Birinchi Wi-Fi ulanishida
-macOS «WireShift kiruvchi ulanishlarni qabul qilsinmi?» deb so'rasa — **Allow**.
-Asl sifatdagi video uchun telefonda tanlash oynasida Options → **Current**.
+1. Ikkala Mac'da WireShift → **Mac ↔ Mac** → **Boshlash**.
+2. Ikkinchi Mac ro'yxatda o'zi chiqadi — fayl/papkani sudrab tashlang → **Yuborish**.
+3. Qabul qiluvchi Mac'da oyna chiqadi: kim, qancha, 4 xonali kod (ikkala ekranda bir xil) → **Qabul qilish**.
+   «Ishonaman» belgilansa keyingi safar so'ramaydi.
 
-### Tuzatishlar
-- Buzuq video thumbnail'i Quick Look'ni abadiy osib qo'yardi — endi 8 soniyada to'xtatiladi.
-- Ilova loglari endi yoziladi (muammolarni topish osonroq).
+- 4 ta parallel oqim, har bo'lak tekshiriladi (CRC32); jonli tezlik, qolgan vaqt, pauza / davom ettirish.
+- Wi-Fi uzilsa o'zi qayta ulanadi va **to'xtagan joyidan davom etadi** (ilova qayta ochilsa ham).
+- Qabul qilishdan oldin bo'sh joy tekshiriladi; yuborish vaqtida Mac uxlamaydi.
+- Har ikki Mac'ning tarmog'i ko'rinadi: 2.4 / 5 GHz, kanal, Wi-Fi 6, Mbit/s, signal va taxminiy tezlik.
+  Mac 2.4 GHz'da bo'lsa — ogohlantirish va «Wi-Fi sozlamalari» tugmasi.
+- Bu Mac'ning nomini o'zgartirish mumkin (✏️) — boshqa Mac'larda darhol yangilanadi.
+- Fayllar `~/Downloads` ga tushadi (o'zgartirish mumkin). Xizmat faqat «Boshlash» bosilganda ishlaydi, «To'xtatish» bilan yashirinadi.
+
+### Birinchi ishga tushishda
+macOS **«Local Network»** yoki «kiruvchi ulanishlar» ruxsatini so'raydi — ikkala Mac'da ham **Allow**.
+Router 2.4 va 5 GHz tarmoq bersa — ikkala Mac'ni ham 5 GHz (…5G) tarmoqqa ulang: bir necha barobar tez.
+
+### O'zgargan
+- Sidebar tugmalari: Galereya ⌘5, Kabel tezligi ⌘6, Diagnostika ⌘7.
