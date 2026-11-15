@@ -11,11 +11,12 @@ import {
   X,
   Upload,
   Wifi,
+  Laptop,
 } from "lucide-react";
 import { ConnectedDevice } from "../types";
 import { titlebarProps } from "../utils/windowDrag";
 
-export type TabId = "transfer" | "import" | "wifi" | "media" | "cable" | "diagnostics" | "settings";
+export type TabId = "transfer" | "import" | "wifi" | "mac" | "media" | "cable" | "diagnostics" | "settings";
 
 interface SidebarProps {
   currentTab: TabId;
@@ -43,9 +44,10 @@ const NAV: {
   { id: "transfer", label: "Eksport", icon: ArrowLeftRight, shortcut: "⌘1" },
   { id: "import", label: "iPhone'ga yuborish", icon: Upload, shortcut: "⌘2" },
   { id: "wifi", label: "Wi-Fi orqali", icon: Wifi, shortcut: "⌘3" },
-  { id: "media", label: "Galereya", icon: Images, shortcut: "⌘4" },
-  { id: "cable", label: "Kabel tezligi", icon: Gauge, shortcut: "⌘5" },
-  { id: "diagnostics", label: "Diagnostika", icon: Activity, shortcut: "⌘6" },
+  { id: "mac", label: "Mac ↔ Mac", icon: Laptop, shortcut: "⌘4" },
+  { id: "media", label: "Galereya", icon: Images, shortcut: "⌘5" },
+  { id: "cable", label: "Kabel tezligi", icon: Gauge, shortcut: "⌘6" },
+  { id: "diagnostics", label: "Diagnostika", icon: Activity, shortcut: "⌘7" },
 ];
 
 const SidebarItem: React.FC<{

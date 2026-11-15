@@ -1,0 +1,398 @@
+/* Mac ↔ Mac: an AirDrop-like stage of nearby Macs, then one instrument-like transfer card. */
+
+.ws-mac-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 28px;
+  border-radius: 16px;
+  border: 1px solid var(--ws-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ws-mac-stage::before {
+  content: "";
+  position: absolute;
+  inset: -50% -20% auto;
+  height: 160%;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--ws-accent-soft), transparent 70%);
+  animation: ws-mac-breathe 4.8s ease-in-out infinite;
+}
+
+.ws-mac-title {
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+/* searching: radar rings around this Mac */
+.ws-mac-radar {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ws-accent);
+  background: var(--ws-accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.35);
+}
+.ws-mac-radar > span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--ws-accent);
+  opacity: 0;
+  animation: ws-mac-radar 3s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+.ws-mac-radar > span:nth-child(2) { animation-delay: 1s; }
+.ws-mac-radar > span:nth-child(3) { animation-delay: 2s; }
+
+.ws-mac-steps {
+  display: grid;
+  gap: 8px;
+  counter-reset: step;
+  text-align: left;
+  font-size: 12px;
+  color: var(--ws-label);
+}
+.ws-mac-steps li {
+  counter-increment: step;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.ws-mac-steps li::before {
+  content: counter(step);
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  color: var(--ws-accent);
+  background: var(--ws-accent-soft);
+}
+
+/* a nearby Mac */
+.ws-mac-peer {
+  width: 148px;
+  padding: 16px 10px 12px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--ws-label);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ws-separator);
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  animation: ws-mac-pop 320ms cubic-bezier(0.3, 1.3, 0.6, 1) both;
+}
+.ws-mac-peer:hover { background: rgba(255, 255, 255, 0.07); }
+.ws-mac-peer:active { transform: scale(0.98); }
+.ws-mac-peer.is-selected {
+  color: #fff;
+  border-color: var(--ws-accent);
+  background: color-mix(in srgb, var(--ws-accent) 14%, transparent);
+  box-shadow: 0 0 0 4px var(--ws-accent-soft);
+}
+.ws-mac-peer.is-selected svg { color: var(--ws-accent); }
+.ws-mac-peer-name {
+  max-width: 100%;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-mac-peer-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ws-label-3);
+}
+
+/* drop zone */
+.ws-mac-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 24px;
+  text-align: center;
+  border-radius: 14px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.ws-mac-drop.is-over,
+.ws-mac-list.is-over {
+  border-color: var(--ws-accent);
+  background: color-mix(in srgb, var(--ws-accent) 9%, var(--ws-surface));
+  box-shadow: 0 0 0 6px var(--ws-accent-soft);
+}
+.ws-mac-drop-icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 6px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ws-label-2);
+  background: rgba(255, 255, 255, 0.05);
+  transition: transform 200ms cubic-bezier(0.3, 1.4, 0.6, 1), color 160ms ease;
+}
+.ws-mac-drop.is-over .ws-mac-drop-icon {
+  transform: translateY(-4px) scale(1.08);
+  color: var(--ws-accent);
+}
+
+/* transfer card */
+.ws-mac-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 24px 26px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--ws-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ws-mac-card::before {
+  content: "";
+  position: absolute;
+  inset: -60% -10% auto auto;
+  width: 70%;
+  height: 160%;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--ws-accent-soft), transparent 70%);
+  transition: background 600ms ease;
+}
+.ws-mac-card.is-done::before { background: radial-gradient(closest-side, rgba(48, 209, 88, 0.14), transparent 70%); }
+.ws-mac-card.is-warn::before { background: radial-gradient(closest-side, rgba(255, 159, 10, 0.12), transparent 70%); }
+.ws-mac-card.is-bad::before { background: radial-gradient(closest-side, rgba(255, 69, 58, 0.1), transparent 70%); }
+
+.ws-mac-node {
+  width: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ws-label);
+  min-width: 0;
+}
+.ws-mac-node > span { max-width: 100%; }
+
+/* the line between the two Macs; dots travel along it while data moves */
+.ws-mac-beam {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  margin-bottom: 18px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.ws-mac-beam > span {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, var(--ws-accent) 0 10px, transparent 10px 28px);
+  background-size: 28px 2px;
+  animation: ws-mac-flow 0.7s linear infinite;
+}
+.ws-mac-beam.is-paused > span { animation-play-state: paused; opacity: 0.45; }
+.ws-mac-beam.is-warn > span { background: repeating-linear-gradient(90deg, var(--ws-orange) 0 4px, transparent 4px 18px); animation-duration: 1.6s; }
+.ws-mac-beam.is-done > span { background: var(--ws-green); animation: none; }
+.ws-mac-beam.is-bad > span { display: none; }
+
+.ws-mac-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+.is-done .ws-mac-eyebrow { color: var(--ws-green); }
+.is-warn .ws-mac-eyebrow { color: var(--ws-orange); }
+.is-bad .ws-mac-eyebrow { color: var(--ws-red); }
+
+.ws-mac-pct {
+  font-size: 44px;
+  line-height: 0.9;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+.ws-mac-pct > span {
+  font-size: 20px;
+  margin-left: 2px;
+  color: var(--ws-label-2);
+}
+
+.ws-mac-bar {
+  margin-top: 14px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.ws-mac-bar > div {
+  position: relative;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ws-accent);
+  transition: width 500ms ease;
+  overflow: hidden;
+}
+.ws-mac-bar.is-live > div::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-100%);
+  animation: ws-mac-shimmer 1.6s ease-in-out infinite;
+}
+.ws-mac-bar.is-paused > div { background: var(--ws-label-2); }
+.ws-mac-bar.is-warn > div { background: var(--ws-orange); }
+.ws-mac-bar.is-done > div { background: var(--ws-green); }
+.ws-mac-bar.is-bad > div { background: var(--ws-red); }
+
+.ws-mac-dot {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ws-accent);
+  flex: none;
+}
+.ws-mac-dot.is-green { background: var(--ws-green); box-shadow: 0 0 8px var(--ws-green); }
+.ws-mac-dot.is-orange { background: var(--ws-orange); }
+.ws-mac-dot.is-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--ws-accent);
+  animation: ws-mac-radar 1.8s ease-out infinite;
+}
+.is-paused .ws-mac-dot { background: var(--ws-label-2); }
+
+/* the 4-digit code both Macs show */
+.ws-mac-code {
+  font: 600 26px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.32em;
+  margin-right: -0.32em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.ws-mac-sheet-icon {
+  width: 84px;
+  height: 84px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ws-accent);
+  background: var(--ws-accent-soft);
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.3);
+}
+
+@keyframes ws-mac-radar {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes ws-mac-breathe {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@keyframes ws-mac-flow {
+  from { background-position: 0 0; }
+  to { background-position: 28px 0; }
+}
+@keyframes ws-mac-shimmer {
+  to { transform: translateX(100%); }
+}
+@keyframes ws-mac-pop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-mac-stage::before,
+  .ws-mac-radar > span,
+  .ws-mac-beam > span,
+  .ws-mac-bar > div::after,
+  .ws-mac-dot.is-pulse::after,
+  .ws-mac-peer { animation: none; }
+}
+
+/* intro: two Macs joined by a line */
+.ws-mac-pair {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--ws-accent);
+}
+.ws-mac-pair-line {
+  width: 96px;
+  height: 2px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, var(--ws-accent) 0 8px, transparent 8px 16px);
+  opacity: 0.6;
+}
+
+.ws-mac-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ws-label-2);
+  background: rgba(255, 255, 255, 0.06);
+}
+.ws-mac-chip.is-good { color: var(--ws-green); background: rgba(48, 209, 88, 0.12); }
+.ws-mac-chip.is-warn { color: var(--ws-orange); background: rgba(255, 159, 10, 0.12); }
+
+.ws-mac-warn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--ws-orange);
+  background: rgba(255, 159, 10, 0.08);
+  border: 1px solid rgba(255, 159, 10, 0.25);
+}
+.ws-mac-warn b { font-weight: 600; }
+
+.ws-mac-peer-meta.is-slow { color: var(--ws-orange); }
+
+.ws-mac-name-input {
+  width: 240px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--ws-accent);
+  box-shadow: 0 0 0 3px var(--ws-accent-soft);
+  outline: none;
+}

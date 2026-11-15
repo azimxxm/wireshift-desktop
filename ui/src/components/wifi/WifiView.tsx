@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { HelpCircle } from "lucide-react";
 import { WifiInfo } from "../../types";
@@ -10,6 +9,7 @@ import { WifiIdleHero, WifiLiveHero } from "./WifiHero";
 import { WifiSpeed } from "./WifiSpeed";
 import { IncomingList, OutgoingList } from "./WifiLists";
 import { useWifiStatus } from "./useWifiStatus";
+import { useFileDrop } from "../../hooks/useFileDrop";
 import "./wifi.css";
 
 interface WifiViewProps {
@@ -21,34 +21,6 @@ const sessionFolderName = () => {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `Wi-Fi ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}`;
-};
-
-/** Finder drops: this page is only mounted while visible, so it never steals ImportView's drops. */
-const useFileDrop = (onPaths: (paths: string[]) => void) => {
-  const [isDragOver, setIsDragOver] = useState(false);
-  const handler = useRef(onPaths);
-  handler.current = onPaths;
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let alive = true;
-    getCurrentWebview()
-      .onDragDropEvent((event) => {
-        const t = event.payload.type;
-        if (t === "enter" || t === "over") setIsDragOver(true);
-        else if (t === "leave") setIsDragOver(false);
-        else if (t === "drop") {
-          setIsDragOver(false);
-          handler.current(event.payload.paths);
-        }
-      })
-      .then((fn) => (alive ? (unlisten = fn) : fn()))
-      .catch((e) => console.error("drag-drop listener failed:", e));
-    return () => {
-      alive = false;
-      unlisten?.();
-    };
-  }, []);
-  return isDragOver;
 };
 
 export const WifiView: React.FC<WifiViewProps> = ({ exportPath }) => {

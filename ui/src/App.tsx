@@ -10,6 +10,9 @@ import { SettingsView } from "./components/SettingsView";
 import { AboutModal } from "./components/AboutModal";
 import { ImportView, ImportBusyState } from "./components/ImportView";
 import { WifiView } from "./components/wifi/WifiView";
+import { MacLinkView } from "./components/maclink/MacLinkView";
+import { IncomingRequestSheet } from "./components/maclink/IncomingRequestSheet";
+import { formatSpeed, isRecvLive, isSendLive, useMacLink } from "./components/maclink/useMacLink";
 import {
   ConnectedDevice,
   SystemStatus,
@@ -63,6 +66,9 @@ export function App() {
   });
   const isImportingRef = useRef(false);
   isImportingRef.current = importBusy.active;
+
+  // Mac <-> Mac runs app-wide: the accept dialog shows on any page
+  const mac = useMacLink();
 
   const refreshDevices = async () => {
     setIsRefreshing(true);
@@ -158,7 +164,7 @@ export function App() {
     setExportResult(null);
   }, [sourceDevice?.udid]);
 
-  // ⌘1-6 pages (sidebar order), ⌘, settings, ⌘R rescan
+  // ⌘1-7 pages (sidebar order), ⌘, settings, ⌘R rescan
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.metaKey || e.altKey || e.ctrlKey) return;
@@ -166,9 +172,10 @@ export function App() {
         "1": "transfer",
         "2": "import",
         "3": "wifi",
-        "4": "media",
-        "5": "cable",
-        "6": "diagnostics",
+        "4": "mac",
+        "5": "media",
+        "6": "cable",
+        "7": "diagnostics",
         ",": "settings",
       };
       if (tabs[e.key]) {
@@ -364,6 +371,31 @@ export function App() {
 
   const progressLabel = `Ko'chirilmoqda · ${progress}%${speedText ? ` · ${speedText}` : ""}`;
 
+  /** What the sidebar progress card shows: export, then iPhone import, then Mac <-> Mac */
+  const sidebarJob = (() => {
+    if (isExporting) return { progress, label: progressLabel, tab: "transfer" as TabId, cancel: handleCancelExport };
+    if (importBusy.active)
+      return {
+        progress: importBusy.progress,
+        label: importBusy.label,
+        tab: "import" as TabId,
+        cancel: () => invoke("cancel_import").catch(console.debug),
+      };
+    const st = mac.status;
+    const job = isSendLive(st) ? st?.send : isRecvLive(st) ? st?.receive : null;
+    if (!job || !st) return null;
+    const sending = job === st.send;
+    const pct = job.total > 0 ? Math.floor((job.done / job.total) * 100) : 0;
+    const speed = sending ? mac.speeds.send : mac.speeds.recv;
+    const who = st.send && sending ? `${st.send.peer_name}'ga` : `${st.receive?.from_name ?? "Mac"}'dan`;
+    return {
+      progress: pct,
+      label: `${who} · ${pct}%${speed > 0 ? ` · ${formatSpeed(speed)}` : ""}`,
+      tab: "mac" as TabId,
+      cancel: () => invoke(sending ? "maclink_cancel_send" : "maclink_cancel_receive").then(mac.refresh).catch(console.debug),
+    };
+  })();
+
   return (
     <div className="flex h-screen text-white overflow-hidden">
       <Sidebar
@@ -375,15 +407,11 @@ export function App() {
         devices={devices}
         activeUdid={sourceDevice?.udid}
         onSelectDevice={setSourceUdid}
-        isMigrating={isExporting || importBusy.active}
-        progress={importBusy.active ? importBusy.progress : progress}
-        progressLabel={importBusy.active ? importBusy.label : progressLabel}
-        onCancel={
-          importBusy.active
-            ? () => invoke("cancel_import").catch(console.debug)
-            : handleCancelExport
-        }
-        progressTab={importBusy.active ? "import" : "transfer"}
+        isMigrating={!!sidebarJob}
+        progress={sidebarJob?.progress ?? 0}
+        progressLabel={sidebarJob?.label ?? ""}
+        onCancel={() => sidebarJob?.cancel()}
+        progressTab={sidebarJob?.tab ?? "transfer"}
       />
 
       <main className="ws-main flex-1 min-w-0 flex flex-col">
@@ -434,6 +462,9 @@ export function App() {
         {/* mounted only while visible: its Finder drop listener must not compete with ImportView */}
         {currentTab === "wifi" && <WifiView exportPath={exportPath} />}
 
+        {/* mounted only while visible, for the same Finder-drop reason as WifiView */}
+        {currentTab === "mac" && <MacLinkView status={mac.status} speeds={mac.speeds} refresh={mac.refresh} />}
+
         {currentTab === "media" && (
           <MediaExplorer
             catalog={catalog}
@@ -475,6 +506,15 @@ export function App() {
           />
         )}
       </main>
+
+      <IncomingRequestSheet
+        request={mac.status?.request ?? null}
+        receiveDir={mac.status?.me.receive_dir ?? ""}
+        onAnswered={(accepted) => {
+          mac.refresh();
+          if (accepted) setCurrentTab("mac");
+        }}
+      />
 
       <AboutModal
         isOpen={isAboutOpen}

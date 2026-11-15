@@ -200,3 +200,117 @@ export interface WifiStatus {
   sent_total: number;
   stop_reason: string | null;
 }
+
+// ---------- Mac <-> Mac ----------
+
+export interface NetInfo {
+  kind: "wifi" | "ethernet" | "none";
+  /** null when macOS hides the Wi-Fi name */
+  ssid: string | null;
+  band: string | null;
+  channel: string | null;
+  standard: string | null;
+  rate_mbps: number | null;
+  signal_dbm: number | null;
+  ip: string | null;
+}
+
+export interface PeerNet {
+  kind: string;
+  band: string | null;
+  channel: string | null;
+  rate_mbps: number | null;
+}
+
+export interface MacPeer {
+  net: PeerNet | null;
+  id: string;
+  name: string;
+  /** "MacBook Pro", "Mac mini"... */
+  model: string;
+  /** reachable over a Thunderbolt cable */
+  cable: boolean;
+}
+
+export type MacSendState =
+  | "connecting"
+  | "waiting"
+  | "sending"
+  | "paused"
+  | "reconnecting"
+  | "done"
+  | "declined"
+  | "failed"
+  | "cancelled";
+
+export type MacRecvState = "receiving" | "paused" | "interrupted" | "done" | "failed" | "cancelled";
+
+export interface MacSend {
+  peer_id: string;
+  peer_name: string;
+  peer_model: string;
+  state: MacSendState;
+  message: string | null;
+  code: string;
+  total: number;
+  done: number;
+  /** raw network bytes of the current link, for the speed meter */
+  counter: number;
+  files: number;
+  roots: string[];
+  current: string | null;
+  link: "cable" | "wifi" | null;
+  elapsed_ms: number;
+}
+
+export interface MacReceive {
+  from_name: string;
+  from_model: string;
+  state: MacRecvState;
+  message: string | null;
+  total: number;
+  done: number;
+  counter: number;
+  files: number;
+  roots: string[];
+  folder: string;
+  elapsed_ms: number;
+}
+
+export interface MacRequest {
+  id: string;
+  from_name: string;
+  from_model: string;
+  code: string;
+  total: number;
+  files: number;
+  roots: string[];
+  /** already on this Mac from an interrupted try */
+  resume_bytes: number;
+}
+
+export interface MacLinkStatus {
+  me: {
+    id: string;
+    name: string;
+    model: string;
+    receive_dir: string;
+    online: boolean;
+    starting: boolean;
+    net: NetInfo | null;
+    error: string | null;
+  };
+  peers: MacPeer[];
+  send: MacSend | null;
+  receive: MacReceive | null;
+  request: MacRequest | null;
+  trusted: string[];
+}
+
+export interface MacPicked {
+  path: string;
+  name: string;
+  is_dir: boolean;
+  size: number;
+  files: number;
+}
